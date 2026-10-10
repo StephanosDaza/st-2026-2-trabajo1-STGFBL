@@ -1,0 +1,81 @@
+library(tibble)
+
+leer_serie <- function(x, fuente, unidad) {
+  if (inherits(x, "ts")) {
+    n <- length(x)
+    freq <- frequency(x)
+    inicio <- start(x)
+    anio_ini <- inicio[1]
+    ciclo_ini <- inicio[2]
+    
+    if (freq == 1) {
+      fechas <- seq(as.Date(paste0(anio_ini, "-01-01")), by = "year", length.out = n)
+    } else if (freq == 4) {
+      mes_ini <- (ciclo_ini - 1) * 3 + 1
+      fechas <- seq(as.Date(paste0(anio_ini, "-", mes_ini, "-01")), by = "quarter", length.out = n)
+    } else if (freq == 12) {
+      fechas <- seq(as.Date(paste0(anio_ini, "-", ciclo_ini, "-01")), by = "month", length.out = n)
+    } else {
+      stop("Frecuencia no soportada para conversion de ts a Date.")
+    }
+    df <- tibble(t = 1:n, fecha = fechas, y = as.numeric(x))
+    
+  } else if (is.character(x)) {
+    if (!file.exists(x)) stop("El archivo CSV no existe.")
+    datos <- read.csv(x)
+    if (!all(c("fecha", "valor") %in% colnames(datos))) {
+      stop("El CSV debe tener exactamente las columnas 'fecha' y 'valor'.")
+    }
+    
+    fechas <- as.Date(datos$fecha)
+    n <- nrow(datos)
+    df <- tibble(t = 1:n, fecha = fechas, y = as.numeric(datos$valor))
+    
+    dias_diff <- as.numeric(diff(fechas))
+    mediana_dias <- median(dias_diff, na.rm = TRUE)
+    
+    if (mediana_dias >= 360) { freq <- 1
+    } else if (mediana_dias >= 85 && mediana_dias <= 95) { freq <- 4
+    } else if (mediana_dias >= 28 && mediana_dias <= 31) { freq <- 12
+    } else if (mediana_dias == 1) { freq <- 365
+    } else { stop("No se pudo inferir la frecuencia.") }
+  } else {
+    stop("x debe ser un ts o la ruta a un csv.")
+  }
+  
+  if (any(is.na(df$y))) stop("La serie contiene valores faltantes (NA).")
+  if (any(diff(df$fecha) <= 0)) stop("Las fechas no son estrictamente crecientes.")
+  
+  paso <- if (freq == 1) "year" else if (freq == 4) "quarter" else if (freq == 12) "month" else "day"
+  fecha_esperada <- seq(df$fecha[1], by = paso, length.out = n)
+  if (!all(df$fecha == fecha_esperada)) stop("Las fechas no estan equiespaciadas correctamente.")
+  
+  attr(df, "frecuencia") <- freq
+  attr(df, "fuente") <- fuente
+  attr(df, "unidad") <- unidad
+  
+  return(df)
+}
+
+ficha_serie <- function(datos, nombre) {
+  stopifnot(
+    "datos debe ser el tibble generado por leer_serie" =
+      is.data.frame(datos) && all(c("fecha", "y") %in% names(datos)),
+    "nombre debe ser un texto" = is.character(nombre) && length(nombre) == 1
+  )
+  freq <- attr(datos, "frecuencia")
+  etiqueta <- if (freq == 12) "mensual" else if (freq == 365) "diaria" else
+    if (freq == 4) "trimestral" else if (freq == 1) "anual" else as.character(freq)
+  tibble(
+    nombre = nombre,
+    unidad = attr(datos, "unidad"),
+    frecuencia = etiqueta,
+    fecha_inicial = min(datos$fecha),
+    fecha_final = max(datos$fecha),
+    T = nrow(datos),
+    minimo = min(datos$y),
+    maximo = max(datos$y),
+    media = mean(datos$y)
+  )
+}
+
