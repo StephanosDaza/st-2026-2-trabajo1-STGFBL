@@ -36,7 +36,7 @@ config <- list(
 resultados <- list()
 
 
-# SECCION 2: FICHAS Y PARTICION
+# PUNTO 2: FICHAS Y PARTICION
 
 for (k in names(config)) {
   cfg <- config[[k]]
@@ -59,7 +59,7 @@ cat("\n>>> PARTICION EN TRAMOS Y ORIGENES\n")
 print(as.data.frame(tabla_particion))
 
 
-# SECCION 3: DESCRIPCION Y PATRON
+# PUNTO 3: DESCRIPCION Y PATRON
 
 for (k in names(config)) {
   cfg <- config[[k]]
@@ -110,7 +110,7 @@ print(d3$indices)
 cat("- Amplitud de los indices:", resultados$serie3$estacionalidad$amplitud_indices,
     "| Desviacion del residuo:", resultados$serie3$estacionalidad$desviacion_residuo, "\n")
 
-# SECCION 4: OPERADOR DE REZAGO
+# PUNTO 4: OPERADOR DE REZAGO
 
 gamma0 <- function(x) mean((x - mean(x))^2)
 
@@ -200,6 +200,68 @@ for (k in names(config)) {
   cat("- Transformacion elegida:", elegida[[k]], "\n")
 }
 
+
+# PUNTO 5: DEPENDENCIA Y ESTACIONARIEDAD
+
+for (k in names(config)) {
+  x <- resultados[[k]]$transformacion$y
+  n <- length(x)
+  m <- min(floor(n / 4), 24)
+  r <- acf_muestral(x, m)
+  phi <- pacf_dl(r)
+  guardar(correlograma(x, m = m, titulo = resultados[[k]]$transformacion$elegida),
+          paste0(k, "-acf-transformada"), alto = 7)
+  
+  lb <- ljung_box(r, T = n, m = m, p = 0)
+  m_corto <- ceiling(log(n))
+  lb_corto <- ljung_box(r, T = n, m = m_corto, p = 0)
+  
+  grupo <- rep(1:4, each = ceiling(n / 4))[1:n]
+  tabla_bloques <- tibble(
+    bloque = 1:4,
+    n = as.numeric(table(grupo)),
+    media = as.numeric(tapply(x, grupo, mean)),
+    varianza = as.numeric(tapply(x, grupo, var))
+  )
+  
+  L <- floor(4 * (n / 100)^(2 / 9))
+  media <- mean(x)
+  ee_ingenuo <- sd(x) / sqrt(n)
+  vlp <- varianza_largo_plazo(x, L)
+  ee_lp <- sqrt(vlp / n)
+  z <- qnorm(0.975)
+  intervalos <- tibble(
+    error_estandar = c("Ingenuo", "Largo plazo (Bartlett)"),
+    valor = c(ee_ingenuo, ee_lp),
+    limite_inferior = media - z * c(ee_ingenuo, ee_lp),
+    limite_superior = media + z * c(ee_ingenuo, ee_lp)
+  )
+  
+  resultados[[k]]$dependencia <- list(
+    n = n, m = m, acf = r, pacf = phi,
+    banda_ruido_blanco = banda_ruido_blanco(n), banda_bartlett = banda_bartlett(r, n),
+    ljung_box = lb, ljung_box_corto = lb_corto, m_corto = m_corto, bloques = tabla_bloques,
+    media = media, L = L, varianza_largo_plazo = vlp, gamma0 = gamma0(x),
+    intervalos = intervalos
+  )
+  
+  cat("\n>>>", toupper(k), ": DEPENDENCIA SOBRE", resultados[[k]]$transformacion$elegida, "\n")
+  cat("- n =", n, "| m =", m, "| banda ruido blanco = +/-", round(banda_ruido_blanco(n), 4), "\n")
+  cat("- Rezagos fuera de la banda de ruido blanco:",
+      paste(which(abs(r) > banda_ruido_blanco(n)), collapse = ", "), "\n")
+  cat("- ACF:", paste(round(r[1:min(12, m)], 3), collapse = " "), "\n")
+  cat("- PACF:", paste(round(phi[1:min(12, m)], 3), collapse = " "), "\n")
+  cat("- Ljung-Box: Q =", round(lb$estadistico, 3), "| gl =", lb$grados_libertad,
+      "| valor critico =", round(lb$valor_critico, 3), "| valor p =", signif(lb$valor_p, 4), "\n")
+  cat("- Ljung-Box con m corto =", m_corto, ": Q =", round(lb_corto$estadistico, 3),
+      "| gl =", lb_corto$grados_libertad, "| valor critico =", round(lb_corto$valor_critico, 3),
+      "| valor p =", signif(lb_corto$valor_p, 4), "\n")
+  cat("- Media y varianza por bloque:\n")
+  print(as.data.frame(tabla_bloques), digits = 4)
+  cat("- Media =", round(media, 4), "| L =", L, "| gamma(0) =", round(gamma0(x), 4),
+      "| varianza de largo plazo =", round(vlp, 4), "\n")
+  print(as.data.frame(intervalos), digits = 4)
+}
 
 # BLOQUES DE VERIFICACION
 

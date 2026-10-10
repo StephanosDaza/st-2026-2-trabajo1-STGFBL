@@ -66,3 +66,20 @@ ljung_box <- function(r, T, m, p = 0) {
   list(estadistico = Qm, m = m, grados_libertad = gl,
        valor_critico = qchisq(0.95, gl), valor_p = 1 - pchisq(Qm, gl))
 }
+
+
+varianza_largo_plazo <- function(y, L) {
+  stopifnot(
+    "y debe ser un vector numerico sin NA" = is.numeric(y) && !anyNA(y),
+    "L debe ser un entero no negativo menor que n" =
+      length(L) == 1 && L == round(L) && L >= 0 && L < length(y)
+  )
+  n <- length(y)
+  y_c <- y - mean(y)
+  gamma <- function(h) sum(y_c[1:(n - h)] * y_c[(1 + h):n]) / n
+  total <- gamma(0)
+  if (L > 0) {
+    for (h in 1:L) total <- total + 2 * (1 - h / (L + 1)) * gamma(h)
+  }
+  total
+}
