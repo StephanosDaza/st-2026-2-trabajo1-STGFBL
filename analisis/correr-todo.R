@@ -109,3 +109,118 @@ cat("\n>>> SERIE 3: INDICES ESTACIONALES FRENTE AL RUIDO\n")
 print(d3$indices)
 cat("- Amplitud de los indices:", resultados$serie3$estacionalidad$amplitud_indices,
     "| Desviacion del residuo:", resultados$serie3$estacionalidad$desviacion_residuo, "\n")
+
+# SECCION 4: OPERADOR DE REZAGO
+
+gamma0 <- function(x) mean((x - mean(x))^2)
+
+pendiente_mco <- function(y) {
+  X <- cbind(1, seq_along(y))
+  as.numeric(solve(crossprod(X), crossprod(X, y)))[2]
+}
+
+polinomio_texto <- function(coef) {
+  p <- c(1, coef)
+  terminos <- character(0)
+  for (i in seq_along(p)) {
+    if (p[i] == 0) next
+    potencia <- i - 1
+    base <- if (potencia == 0) "" else if (potencia == 1) "B" else paste0("B^", potencia)
+    valor <- abs(p[i])
+    texto <- if (potencia == 0) as.character(valor) else if (valor == 1) base else paste0(valor, base)
+    signo <- if (p[i] < 0) "- " else if (length(terminos) == 0) "" else "+ "
+    terminos <- c(terminos, paste0(signo, texto))
+  }
+  paste(terminos, collapse = " ")
+}
+
+candidatos <- list(
+  serie1 = list(
+    list(nombre = "(1-B)", d = 1, D = 0, s = 1),
+    list(nombre = "(1-B^12)", d = 0, D = 1, s = 12),
+    list(nombre = "(1-B)(1-B^12)", d = 1, D = 1, s = 12)
+  ),
+  serie2 = list(
+    list(nombre = "(1-B)", d = 1, D = 0, s = 1),
+    list(nombre = "(1-B)^2", d = 2, D = 0, s = 1)
+  ),
+  serie3 = list(
+    list(nombre = "(1-B)", d = 1, D = 0, s = 1),
+    list(nombre = "(1-B)^2", d = 2, D = 0, s = 1),
+    list(nombre = "(1-B^12)", d = 0, D = 1, s = 12)
+  )
+)
+
+elegida <- c(serie1 = "(1-B^12)", serie2 = "Ninguna", serie3 = "(1-B)")
+
+for (k in names(config)) {
+  y <- resultados[[k]]$datos$y
+  b1 <- pendiente_mco(y)
+  filas <- list(tibble(
+    transformacion = "Ninguna", polinomio = "1", n = length(y),
+    varianza = gamma0(y), r1 = acf_muestral(y, 1),
+    varianza_identidad = NA_real_,
+    media = mean(y), media_esperada = mean(y)
+  ))
+  graficos_raices <- list()
+  raices <- list()
+  for (cand in candidatos[[k]]) {
+    x <- diferenciar(y, d = cand$d, D = cand$D, s = cand$s)
+    coef <- coef_diferencia(d = cand$d, D = cand$D, s = cand$s)
+    raices[[cand$nombre]] <- polinomio_rezago(coef)
+    graficos_raices[[cand$nombre]] <- graficar_raices(raices[[cand$nombre]], cand$nombre)
+    var_identidad <- NA_real_
+    if (cand$d >= 1) {
+      previa <- diferenciar(y, d = cand$d - 1, D = cand$D, s = cand$s)
+      var_identidad <- 2 * gamma0(previa) * (1 - acf_muestral(previa, 1))
+    }
+    media_esperada <- if (cand$d + cand$D >= 2) 0 else if (cand$D == 1) cand$s * b1 else b1
+    filas[[length(filas) + 1]] <- tibble(
+      transformacion = cand$nombre, polinomio = polinomio_texto(coef), n = length(x),
+      varianza = gamma0(x), r1 = acf_muestral(x, 1),
+      varianza_identidad = var_identidad,
+      media = mean(x), media_esperada = media_esperada
+    )
+  }
+  tabla <- bind_rows(filas)
+  guardar(wrap_plots(graficos_raices, nrow = 1), paste0(k, "-raices"),
+          ancho = 4 * length(graficos_raices), alto = 4.5)
+  
+  cand_elegida <- Filter(function(c) c$nombre == elegida[[k]], candidatos[[k]])
+  y_transformada <- if (length(cand_elegida) == 0) y else
+    diferenciar(y, d = cand_elegida[[1]]$d, D = cand_elegida[[1]]$D, s = cand_elegida[[1]]$s)
+  
+  resultados[[k]]$transformacion <- list(
+    tabla = tabla, raices = raices, pendiente_mco = b1,
+    elegida = elegida[[k]], y = y_transformada
+  )
+  
+  cat("\n>>>", toupper(k), ": TRANSFORMACIONES CANDIDATAS\n")
+  print(as.data.frame(tabla), digits = 4)
+  cat("- Transformacion elegida:", elegida[[k]], "\n")
+}
+
+
+# BLOQUES DE VERIFICACION
+
+cat("\n\n====================================================================\n")
+cat("BLOQUES DE VERIFICACION\n")
+cat("====================================================================\n")
+
+y_v <- resultados$serie1$datos$y
+cat("- diferenciar(d = 1) vs diff():", max(abs(diferenciar(y_v, d = 1) - diff(y_v))), "\n")
+cat("- diferenciar(D = 1, s = 12) vs diff(lag = 12):",
+    max(abs(diferenciar(y_v, D = 1, s = 12) - diff(y_v, lag = 12))), "\n")
+cat("- diferenciar(d = 1, D = 1, s = 12) vs diff(diff(lag = 12)):",
+    max(abs(diferenciar(y_v, d = 1, D = 1, s = 12) - diff(diff(y_v, lag = 12)))), "\n")
+
+for (k in names(config)) {
+  y_k <- resultados[[k]]$datos$y
+  m_k <- min(floor(length(y_k) / 4), 24)
+  dif_acf <- max(abs(acf_muestral(y_k, m_k) - as.numeric(acf(y_k, lag.max = m_k, plot = FALSE)$acf)[-1]))
+  dif_pacf <- max(abs(pacf_dl(acf_muestral(y_k, m_k)) - as.numeric(pacf(y_k, lag.max = m_k, plot = FALSE)$acf)))
+  cat("-", k, "| ACF vs acf():", dif_acf, "| PACF Durbin-Levinson vs pacf():", dif_pacf,
+      "| Menor que 1e-10:", dif_pacf < 1e-10, "\n")
+}
+cat("====================================================================\n")
+
