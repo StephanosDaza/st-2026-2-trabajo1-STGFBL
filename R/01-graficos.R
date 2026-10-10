@@ -141,3 +141,126 @@ correlograma <- function(datos, m = NULL, titulo = NULL) {
   
   p_acf / p_pacf
 }
+
+estaciones_de <- function(datos, s) {
+  stopifnot(
+    "datos debe ser el tibble generado por leer_serie" =
+      is.data.frame(datos) && all(c("t", "fecha", "y") %in% names(datos)),
+    "s debe ser un entero mayor o igual a 2" = length(s) == 1 && s == round(s) && s >= 2
+  )
+  freq <- attr(datos, "frecuencia")
+  if (!is.null(freq) && freq == 12 && s == 12) {
+    list(
+      estacion = as.integer(format(datos$fecha, "%m")),
+      ciclo = as.integer(format(datos$fecha, "%Y")),
+      etiquetas = c("Ene", "Feb", "Mar", "Abr", "May", "Jun",
+                    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"),
+      nombre_x = "Mes",
+      nombre_ciclo = "Anio"
+    )
+  } else {
+    list(
+      estacion = (datos$t - 1) %% s + 1,
+      ciclo = (datos$t - 1) %/% s + 1,
+      etiquetas = if (s == 7) weekdays(datos$fecha[1:7], abbreviate = TRUE) else as.character(1:s),
+      nombre_x = "Indice de estacion",
+      nombre_ciclo = "Ciclo"
+    )
+  }
+}
+
+evidencia_tipo_estacional <- function(datos, s) {
+  e <- estaciones_de(datos, s)
+  conteo <- table(e$ciclo)
+  completos <- as.integer(names(conteo)[conteo == s])
+  stopifnot("se necesitan al menos tres ciclos completos" = length(completos) >= 3)
+  tabla <- do.call(rbind, lapply(completos, function(k) {
+    v <- datos$y[e$ciclo == k]
+    data.frame(ciclo = k, media = mean(v), desviacion = sd(v), rango = max(v) - min(v))
+  }))
+  pendiente <- sum((tabla$media - mean(tabla$media)) * (tabla$desviacion - mean(tabla$desviacion))) /
+    sum((tabla$media - mean(tabla$media))^2)
+  list(
+    tabla = tabla,
+    correlacion_media_desviacion = cor(tabla$media, tabla$desviacion),
+    pendiente_desviacion_sobre_media = pendiente,
+    cv_por_ciclo = tabla$desviacion / tabla$media
+  )
+}
+
+media_movil_centrada <- function(y, s) {
+  stopifnot(
+    "y debe ser un vector numerico sin NA" = is.numeric(y) && !anyNA(y),
+    "s debe ser un entero mayor o igual a 2" = length(s) == 1 && s == round(s) && s >= 2,
+    "la serie debe ser mas larga que el periodo" = length(y) > s
+  )
+  n <- length(y)
+  if (s %% 2 == 1) {
+    q <- (s - 1) / 2
+    w <- rep(1 / s, s)
+  } else {
+    q <- s / 2
+    w <- c(0.5, rep(1, s - 1), 0.5) / s
+  }
+  tendencia <- rep(NA_real_, n)
+  for (t in (q + 1):(n - q)) tendencia[t] <- sum(w * y[(t - q):(t + q)])
+  tendencia
+}
+
+descomposicion_clasica <- function(datos, s, tipo = "aditiva") {
+  stopifnot(
+    "tipo debe ser 'aditiva' o 'multiplicativa'" =
+      length(tipo) == 1 && tipo %in% c("aditiva", "multiplicativa"),
+    "la serie debe tener al menos dos ciclos completos" = nrow(datos) >= 2 * s
+  )
+  if (tipo == "multiplicativa") {
+    stopifnot("la version multiplicativa exige valores positivos" = all(datos$y > 0))
+  }
+  e <- estaciones_de(datos, s)
+  y <- datos$y
+  tendencia <- media_movil_centrada(y, s)
+  sin_tendencia <- if (tipo == "aditiva") y - tendencia else y / tendencia
+  crudos <- tapply(sin_tendencia, factor(e$estacion, levels = 1:s), mean, na.rm = TRUE)
+  indices <- if (tipo == "aditiva") crudos - mean(crudos) else crudos / mean(crudos)
+  estacional <- as.numeric(indices[e$estacion])
+  residuo <- if (tipo == "aditiva") y - tendencia - estacional else y / (tendencia * estacional)
+  list(
+    tipo = tipo, s = s, unidad = attr(datos, "unidad"),
+    componentes = tibble(t = datos$t, fecha = datos$fecha, y = y,
+                         tendencia = tendencia, estacional = estacional, residuo = residuo),
+    indices = tibble(estacion = 1:s, etiqueta = e$etiquetas, indice = as.numeric(indices))
+  )
+}
+
+graficar_descomposicion <- function(desc, titulo) {
+  stopifnot(
+    "desc debe ser la salida de descomposicion_clasica()" =
+      is.list(desc) && all(c("componentes", "indices", "tipo") %in% names(desc)),
+    "titulo debe ser un texto" = is.character(titulo) && length(titulo) == 1
+  )
+  comp <- desc$componentes
+  idx <- desc$indices
+  ref <- if (desc$tipo == "aditiva") 0 else 1
+  p1 <- ggplot(comp, aes(x = fecha)) +
+    geom_line(aes(y = y), color = "gray60") +
+    geom_line(aes(y = tendencia), color = "darkred", linewidth = 0.9, na.rm = TRUE) +
+    labs(title = paste0(titulo, " - descomposicion ", desc$tipo),
+         subtitle = "Gris: serie. Rojo: tendencia por media movil centrada",
+         x = NULL, y = desc$unidad) +
+    theme_minimal()
+  p2 <- ggplot(idx, aes(x = estacion, y = indice)) +
+    geom_col(fill = "steelblue") +
+    geom_hline(yintercept = ref) +
+    scale_x_continuous(breaks = idx$estacion, labels = idx$etiqueta) +
+    labs(title = "Indices estacionales normalizados",
+         subtitle = if (desc$tipo == "aditiva") "Suman cero" else "Promedian uno",
+         x = NULL, y = if (desc$tipo == "aditiva") desc$unidad else "Indice") +
+    theme_minimal()
+  p3 <- ggplot(comp, aes(x = fecha, y = residuo)) +
+    geom_line(color = "darkgreen", na.rm = TRUE) +
+    geom_hline(yintercept = ref, linetype = "dashed") +
+    labs(title = "Residuo", x = "Fecha",
+         y = if (desc$tipo == "aditiva") desc$unidad else "Cociente") +
+    theme_minimal()
+  p1 / p2 / p3
+}
