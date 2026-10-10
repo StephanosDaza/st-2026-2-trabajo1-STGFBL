@@ -1,0 +1,442 @@
+---
+title: "Trabajo 1: tres series de Energía del Altiplano"
+subtitle: "Código del equipo: STGFBL"
+author:
+  - Esteban Daza Palomino
+  - Juan David Garro Arboleda
+  - Sara Jurado Giraldo
+date: today
+lang: es
+format:
+  html:
+    toc: true
+    toc-title: "Contenido"
+    toc-location: left
+    toc-depth: 3
+    theme: cosmo
+    embed-resources: true
+    code-fold: true
+    code-summary: "Ver código"
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup-directorio
+#| include: false
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+```
+
+```{r}
+#| label: setup-ejecucion
+#| include: false
+salida <- capture.output(source("analisis/correr-todo.R", encoding = "UTF-8"))
+```
+
+```{r}
+#| label: setup-formato
+#| include: false
+f <- function(x, d = 2) formatC(x, digits = d, format = "f", big.mark = ",")
+vp <- function(p) if (p < 1e-4) "$< 0.0001$" else paste0("$= ", formatC(p, digits = 4, format = "f"), "$")
+dec <- function(p) if (p < 0.05) "Se rechaza $H_0$ al 5 %." else "No se rechaza $H_0$ al 5 %."
+fila <- function(k, nombre, col) {
+  tb <- resultados[[k]]$transformacion$tabla
+  tb[[col]][tb$transformacion == nombre]
+}
+dep <- function(k) resultados[[k]]$dependencia
+lineas <- function(patron) cat(grep(patron, salida, value = TRUE), sep = "\n")
+```
+
+# 1. Estructura del repositorio
+
+El repositorio `st-2026-2-trabajo1-STGFBL` tiene la estructura exigida. Las funciones viven en `R/`, organizadas por tema, y `analisis/correr-todo.R` las carga, analiza las tres series en orden, guarda las figuras en `figs/` y deja todos los resultados en la lista `resultados`. Este informe ejecuta ese script al renderizarse y toma de allí cada cifra, de modo que el texto coincide siempre con la ejecución.
+
+| Archivo | Funciones |
+|:---|:---|
+| `R/00-lectura.R` | `leer_serie()`, `ficha_serie()` |
+| `R/01-graficos.R` | `graficar_serie()`, `grafico_estacional()`, `grafico_rezagos()`, `correlograma()`, `descomposicion_clasica()` |
+| `R/02-operadores.R` | `diferenciar()`, `polinomio_rezago()`, `coef_diferencia()` |
+| `R/03-dependencia.R` | `acf_muestral()`, `pacf_dl()`, `ljung_box()`, `varianza_largo_plazo()` |
+| `R/04-metodos.R` | Los métodos de pronóstico de la sección 6 |
+| `R/05-evaluacion.R` | `particion_serie()` y las funciones de evaluación de la sección 6 |
+
+# 2. Las tres series y la pregunta de pronóstico
+
+## 2(a) Fichas verificadas con código
+
+```{r}
+#| label: tabla-fichas
+#| echo: true
+knitr::kable(
+  tabla_fichas,
+  col.names = c("Nombre", "Unidad", "Frecuencia", "Fecha inicial", "Fecha final", "T", "Mínimo", "Máximo", "Media"),
+  digits = 2
+)
+```
+
+La ficha sale de `leer_serie()`, que además verifica que las fechas de cada archivo son crecientes y equiespaciadas según su frecuencia y se detiene si no lo son. Las tres series pasaron esa verificación, y sus cifras coinciden con las del `LEEME.md`.
+
+## 2(b) Pregunta, decisión y horizonte
+
+**Serie 1, demanda mensual.** *Pregunta:* ¿cuántos GWh debe contratar la gerencia comercial para cada mes de 2026? *Decisión:* el volumen de los doce contratos que se firman en diciembre de 2025; la energía que falte se paga en bolsa con un sobrecosto del 35 % y la que sobre se liquida con una pérdida del 20 %. *Horizonte:* $H = 12$ meses, de enero a diciembre de 2026.
+
+**Serie 2, consumo diario de la estación El Guamo.** *Pregunta:* ¿cuántos MWh debe contratar la mesa de compras para cada día de la semana siguiente? *Decisión:* el volumen contratado cada lunes a 420 pesos por kWh; el faltante se compra a 780 pesos por kWh y el sobrante se revende a 250. *Horizonte:* $H = 7$ días.
+
+**Serie 3, usuarios conectados.** *Pregunta:* ¿superarán los usuarios los 450 mil antes de que un transformador ordenado en los próximos doce meses pueda entrar en servicio? *Decisión:* si se ordena el transformador, de 6.800 millones de pesos, y en qué mes. *Horizonte:* $H = 21$ meses. Un transformador ordenado en el mes 12 entra en servicio en el mes $12 + 9 = 21$; para saber si hace falta ordenarlo dentro del año hay que pronosticar hasta ese mes, y un horizonte de 12 meses no detectaría una sobrecarga entre los meses 13 y 21 que ya exigiría la orden.
+
+## 2(c) Partición en tramos y orígenes
+
+Con $n_0 = \lfloor 0.8\,T \rfloor$, el tramo de estimación son las observaciones $1, \ldots, n_0$. Los orígenes de la evaluación son $o = n_0, \ldots, T-1$ para $h = 1$ y $o = n_0, \ldots, T-H$ para el horizonte $H$.
+
+```{r}
+#| label: tabla-particion
+#| echo: true
+knitr::kable(
+  tabla_particion[, c("serie", "T", "n0", "H", "n_origenes_h1", "n_origenes_H",
+                      "estimacion", "validacion", "origenes_h1", "origenes_H")],
+  col.names = c("Serie", "T", "$n_0$", "H", "Orígenes h = 1", "Orígenes H",
+                "Tramo de estimación", "Tramo de validación", "Fechas de los orígenes h = 1",
+                "Fechas de los orígenes H")
+)
+```
+
+# 3. Descripción y patrón
+
+## Serie 1: demanda mensual de energía
+
+### 3(a) Gráfico en el tiempo y gráfico de rezagos
+
+![](../figs/serie1-tiempo.png){width=85%}
+
+La demanda crece de forma sostenida, de unos 550 GWh en 2014 a cerca de 790 GWh en 2025, casi en línea recta. Sobre esa tendencia se repite cada año el mismo patrón: un pico en febrero, un valle a mitad de año y una subida hacia diciembre.
+
+![](../figs/serie1-rezagos.png){width=95%}
+
+Se eligen los rezagos 1, 6 y 12 porque cada uno responde una pregunta distinta. En $k = 1$ ($r_1 =$ `r f(resultados$serie1$acf_serie[1])`) la nube es estrecha sobre la diagonal: cada mes se parece mucho al anterior. En $k = 6$ ($r_6 =$ `r f(resultados$serie1$acf_serie[6])`), medio ciclo, la nube se dispersa, porque se enfrentan meses de fases opuestas, como febrero contra agosto. En $k = 12$ ($r_{12} =$ `r f(resultados$serie1$acf_serie[12])`) la nube vuelve a cerrarse y queda paralela por encima de la diagonal: el mismo mes un año después es mayor por una cantidad casi constante, que es la huella conjunta de la estacionalidad anual y de la tendencia lineal.
+
+### 3(b) Estacionalidad
+
+![](../figs/serie1-estacional.png){width=85%}
+
+Los doce trazos tienen la misma forma y se desplazan hacia arriba de manera casi paralela. **La serie tiene estacionalidad de período $s = 12$.**
+
+Para elegir entre la descomposición aditiva y la multiplicativa se compara, en cada año completo, la media con la desviación estándar. En la versión aditiva la amplitud estacional no depende del nivel; en la multiplicativa crece con él.
+
+```{r}
+#| label: s1-evidencia
+#| echo: true
+ev1 <- resultados$serie1$estacionalidad$evidencia
+knitr::kable(ev1$tabla, col.names = c("Año", "Media (GWh)", "Desviación (GWh)", "Rango (GWh)"), digits = 2)
+```
+
+La correlación entre la media y la desviación de cada año es `r f(ev1$correlacion_media_desviacion, 3)`, y la pendiente de la desviación sobre la media es `r f(ev1$pendiente_desviacion_sobre_media, 5)`: a lo largo de los `r f(max(ev1$tabla$media) - min(ev1$tabla$media), 0)` GWh que sube la media anual, la desviación cambiaría apenas `r f(ev1$pendiente_desviacion_sobre_media * (max(ev1$tabla$media) - min(ev1$tabla$media)), 2)` GWh. La desviación se mantiene entre `r f(min(ev1$tabla$desviacion), 0)` y `r f(max(ev1$tabla$desviacion), 0)` GWh sin tendencia, mientras que el coeficiente de variación baja de `r f(100 * ev1$cv_por_ciclo[1], 1)` % a `r f(100 * ev1$cv_por_ciclo[length(ev1$cv_por_ciclo)], 1)` %. Si la estacionalidad fuera multiplicativa, lo constante sería el coeficiente de variación y no la desviación. **Se elige la descomposición aditiva.**
+
+La descomposición clásica se programó a mano en `descomposicion_clasica()`: la tendencia es una media móvil centrada $2 \times 12$, los índices estacionales son el promedio por mes de la serie sin tendencia, normalizados para que sumen cero, y el residuo es lo que queda.
+
+![](../figs/serie1-descomposicion-aditiva.png){width=85%}
+
+```{r}
+#| label: s1-indices
+#| echo: true
+knitr::kable(resultados$serie1$estacionalidad$aditiva$indices[, c("etiqueta", "indice")],
+             col.names = c("Mes", "Índice estacional (GWh)"), digits = 2)
+```
+
+```{r}
+#| label: s1-indices-cifras
+idx1 <- resultados$serie1$estacionalidad$aditiva$indices
+```
+
+Febrero está `r f(max(idx1$indice), 1)` GWh por encima de la tendencia y julio `r f(abs(min(idx1$indice)), 1)` GWh por debajo; la oscilación de pico a valle es de `r f(max(idx1$indice) - min(idx1$indice), 1)` GWh cada año. El residuo oscila en una banda estable alrededor de cero, sin tendencia y sin abrirse cuando el nivel sube. La versión multiplicativa, que se muestra para comparar, deja un residuo de forma parecida porque la oscilación estacional es pequeña frente al nivel; entre las dos decide la evidencia numérica anterior.
+
+![](../figs/serie1-descomposicion-multiplicativa.png){width=85%}
+
+### 3(c) Correlograma y clasificación del patrón
+
+![](../figs/serie1-acf.png){width=85%}
+
+Con $m = \min\{\lfloor 144/4 \rfloor, 24\} = 24$, la ACF decae muy despacio desde `r f(resultados$serie1$acf_serie[1])` y repunta en los rezagos 12 y 24; la PACF tiene un único pico grande en el rezago 1. El decaimiento lento es la forma de una serie con tendencia, y los repuntes en 12 y 24 son la onda estacional superpuesta. **Patrón: tendencia lineal más estacionalidad aditiva de período 12; la serie no es estacionaria en media.**
+
+## Serie 2: consumo diario de la estación El Guamo
+
+### 3(a) Gráfico en el tiempo y gráfico de rezagos
+
+![](../figs/serie2-tiempo.png){width=85%}
+
+La serie no tiene tendencia: oscila alrededor de 47 a 48 MWh, con rachas de varios días de consumo alto, como a mediados de abril, de mayo y a inicios de septiembre, y otras de consumo bajo.
+
+![](../figs/serie2-rezagos.png){width=95%}
+
+Se eligen los rezagos 1, 2 y 7. En $k = 1$ ($r_1 =$ `r f(resultados$serie2$acf_serie[1])`) la nube es alargada: un día de consumo alto suele seguirse de otro alto. En $k = 2$ ($r_2 =$ `r f(resultados$serie2$acf_serie[2])`) la relación se debilita. En $k = 7$ ($r_7 =$ `r f(resultados$serie2$acf_serie[7])`), el mismo día de la semana anterior, la nube es redonda: no hay relación semanal.
+
+### 3(b) Estacionalidad
+
+![](../figs/serie2-estacional.png){width=85%}
+
+Como los datos son diarios y la compra es semanal, se examina el período $s = 7$. Los trazos de cada semana se cruzan sin una forma común: ningún día está sistemáticamente arriba o abajo.
+
+```{r}
+#| label: s2-evidencia
+#| echo: true
+est2 <- resultados$serie2$estacionalidad
+knitr::kable(
+  data.frame(dia = weekdays(resultados$serie2$datos$fecha[1:7]), media = as.numeric(est2$media_por_dia)),
+  col.names = c("Día", "Consumo medio (MWh)"), digits = 2
+)
+```
+
+Las medias por día de la semana van de `r f(min(est2$media_por_dia))` a `r f(max(est2$media_por_dia))` MWh: la diferencia entre el día más alto y el más bajo, `r f(est2$rango_medias)` MWh, es apenas el `r f(100 * est2$rango_medias / est2$desviacion_serie, 0)` % de la desviación de la serie (`r f(est2$desviacion_serie)` MWh), y $r_7 =$ `r f(resultados$serie2$acf_serie[7])` y $r_{14} =$ `r f(resultados$serie2$acf_serie[14])` quedan dentro de la banda de ruido blanco. Saber qué día es no cambia el consumo esperado. **La serie no tiene estacionalidad.**
+
+### 3(c) Correlograma y clasificación del patrón
+
+![](../figs/serie2-acf.png){width=85%}
+
+Con $m = 24$, la ACF decae rápido (`r paste(f(resultados$serie2$acf_serie[1:4]), collapse = ", ")`) y se apaga desde el rezago 5, sin picos en 7, 14 ni 21. La PACF tiene un único pico grande en el rezago 1. **Patrón: nivel constante sin tendencia ni estacionalidad, con dependencia de corto plazo; la serie es plausiblemente estacionaria.**
+
+## Serie 3: usuarios conectados a la red
+
+### 3(a) Gráfico en el tiempo y gráfico de rezagos
+
+![](../figs/serie3-tiempo.png){width=85%}
+
+El número de usuarios crece de forma casi lineal, de unos 208 mil a 411 mil, con pequeños saltos pero sin un patrón que se repita cada año.
+
+![](../figs/serie3-rezagos.png){width=95%}
+
+Se eligen los rezagos 1, 6 y 12, los mismos de la serie 1, para contrastar. Aquí la correlación decae de forma monótona: $r_1 =$ `r f(resultados$serie3$acf_serie[1])`, $r_6 =$ `r f(resultados$serie3$acf_serie[6])` y $r_{12} =$ `r f(resultados$serie3$acf_serie[12])`. La nube de $k = 12$ no es más estrecha que la de $k = 6$, como ocurriría si hubiera estacionalidad anual; solo se aleja más de la diagonal, por el crecimiento acumulado.
+
+### 3(b) Estacionalidad
+
+![](../figs/serie3-estacional.png){width=85%}
+
+Los trazos anuales son casi planos y no comparten forma; solo se desplazan hacia arriba. Para medirlo se aplicó la descomposición clásica aditiva y se compararon los índices estacionales con el ruido.
+
+```{r}
+#| label: s3-evidencia
+#| echo: true
+est3 <- resultados$serie3$estacionalidad
+knitr::kable(est3$descomposicion$indices[, c("etiqueta", "indice")],
+             col.names = c("Mes", "Índice (miles de usuarios)"), digits = 2)
+```
+
+Los índices suben y bajan sin orden, y su amplitud total, `r f(est3$amplitud_indices)` mil usuarios, es menor que la desviación del residuo, `r f(est3$desviacion_residuo)` mil. Lo que la descomposición atribuye a la estación no se distingue del ruido. **La serie no tiene estacionalidad.**
+
+![](../figs/serie3-descomposicion-aditiva.png){width=85%}
+
+### 3(c) Correlograma y clasificación del patrón
+
+![](../figs/serie3-acf.png){width=85%}
+
+Con $m = 24$, la ACF decae de forma lenta y casi lineal, de `r f(resultados$serie3$acf_serie[1])` a `r f(resultados$serie3$acf_serie[24])`, sin ningún repunte en 12 ni en 24, a diferencia de la serie 1. La PACF tiene un único pico en el rezago 1. **Patrón: tendencia creciente sin estacionalidad; la serie no es estacionaria en media.**
+
+# 4. Operador de rezago
+
+## 4(a) Funciones y verificación
+
+`diferenciar(y, d, D, s)` aplica $(1-B)^d(1-B^s)^D$ restando a cada valor el de $s$ períodos antes, $D$ veces, y luego el del período anterior, $d$ veces, sin usar `diff()`. `polinomio_rezago(coef)` recibe $c_1, \ldots, c_p$ de $c(B) = 1 + c_1 B + \cdots + c_p B^p$ y devuelve sus raíces con su parte real, su parte imaginaria, su módulo, su argumento y el período $2\pi/|\arg z|$ que les corresponde. La verificación contra `diff()` da diferencia cero en los tres casos:
+
+```{r}
+#| label: verif-diferenciar
+#| comment: ""
+lineas("diferenciar\\(")
+```
+
+## 4(b) Transformaciones candidatas y sus raíces
+
+El diagnóstico de la sección 3 sugiere las candidatas de cada serie. No se proponen transformaciones previas de escala: en la serie 1 la evidencia favorece la versión aditiva, de modo que el logaritmo no es necesario, y las series 2 y 3 no muestran una varianza que crezca con el nivel.
+
+Cada factor elimina un componente determinista distinto:
+
+- **$(1-B)$**, con raíz $z = 1$, elimina un nivel y convierte una tendencia lineal $\beta_0 + \beta_1 t$ en la constante $\beta_1$.
+- **$(1-B)^2$**, con raíz $z = 1$ doble, elimina una tendencia lineal por completo y convierte una cuadrática en constante.
+- **$(1-B^{12})$** tiene las doce raíces de la unidad $e^{2\pi i k/12}$, $k = 0, \ldots, 11$, todas de módulo 1. La raíz $z = 1$ convierte la tendencia lineal en la constante $12\beta_1$, y las otras once eliminan cualquier patrón que se repita cada 12 meses, con períodos de 12, 6, 4, 3, 2.4 y 2 meses.
+- **$(1-B)(1-B^{12})$** junta ambas: $z = 1$ doble, más las once raíces estacionales.
+
+```{r}
+#| label: polinomios
+#| echo: true
+pol <- bind_rows(lapply(names(resultados), function(k) {
+  tb <- resultados[[k]]$transformacion$tabla[-1, c("transformacion", "polinomio")]
+  bind_cols(tibble(serie = k), tb)
+}))
+knitr::kable(pol, col.names = c("Serie", "Transformación", "Polinomio en B"))
+```
+
+**Serie 1.** Candidatas $(1-B)$, por la tendencia; $(1-B^{12})$, por la estacionalidad; y $(1-B)(1-B^{12})$, por las dos.
+
+![](../figs/serie1-raices.png){width=100%}
+
+**Serie 2.** La serie no muestra tendencia ni estacionalidad, así que la candidata principal es no transformar. Se incluyen $(1-B)$ y $(1-B)^2$ para comprobar que serían diferencias de más.
+
+![](../figs/serie2-raices.png){width=75%}
+
+**Serie 3.** Candidatas $(1-B)$, por la tendencia; $(1-B)^2$, para descartar una tendencia cuadrática; y $(1-B^{12})$, para descartar estacionalidad.
+
+![](../figs/serie3-raices.png){width=100%}
+
+## 4(c) Elección de la transformación
+
+En cada tabla, la varianza es $\hat\gamma(0)$ con divisor $n$, y la columna *Identidad* es la varianza que predice $\text{Var}(\nabla X_t) = 2\gamma(0) - 2\gamma(1) = 2\gamma(0)(1 - \rho_1)$ a partir de la serie a la que se le aplica la última diferencia. La identidad solo vale si esa serie es estacionaria, así que también sirve como diagnóstico.
+
+```{r}
+#| label: tablas-transformaciones
+#| echo: true
+#| results: asis
+for (k in names(resultados)) {
+  cat("\n**", resultados[[k]]$ficha$nombre, "**\n\n", sep = "")
+  tb <- resultados[[k]]$transformacion$tabla
+  print(knitr::kable(
+    tb[, c("transformacion", "n", "varianza", "r1", "varianza_identidad", "media", "media_esperada")],
+    col.names = c("Transformación", "n", "Varianza", "$r_1$", "Identidad", "Media", "Media esperada"),
+    digits = 3
+  ))
+  cat("\n")
+}
+```
+
+**Serie 1: se elige $(1-B^{12})$.** Es la candidata de menor varianza, `r f(fila("serie1", "(1-B^12)", "varianza"), 1)`, y deja $r_1 =$ `r f(fila("serie1", "(1-B^12)", "r1"), 3)`, sin dependencia de un mes al siguiente. $(1-B)$ sola deja una varianza de `r f(fila("serie1", "(1-B)", "varianza"), 1)` porque no elimina la estacionalidad. Agregar $(1-B)$ sobre $(1-B^{12})$ es diferenciar de más: la varianza se duplica, a `r f(fila("serie1", "(1-B)(1-B^12)", "varianza"), 1)`, y $r_1$ cae a `r f(fila("serie1", "(1-B)(1-B^12)", "r1"), 3)`. Es la firma de diferenciar una serie que ya era estacionaria y casi sin correlación: si $\rho_1 = 0$, la identidad da $\text{Var}(\nabla X_t) = 2\gamma(0)$ y $\nabla X_t$ tiene $\rho_1 = -0.5$. La identidad lo confirma: predice `r f(fila("serie1", "(1-B)(1-B^12)", "varianza_identidad"), 1)` y se observa `r f(fila("serie1", "(1-B)(1-B^12)", "varianza"), 1)`. En cambio, al diferenciar la serie original la identidad falla (predice `r f(fila("serie1", "(1-B)", "varianza_identidad"), 1)` frente a `r f(fila("serie1", "(1-B)", "varianza"), 1)` observado), porque esa serie no es estacionaria.
+
+*Verificación de la media.* $(1-B^{12})$ aplicada a $\beta_0 + \beta_1 t + S_t$ deja la constante $12\beta_1$. Con la pendiente por mínimos cuadrados, $\hat\beta_1 =$ `r f(resultados$serie1$transformacion$pendiente_mco, 3)` GWh por mes, se espera `r f(fila("serie1", "(1-B^12)", "media_esperada"))`, y la media observada es `r f(fila("serie1", "(1-B^12)", "media"))` GWh.
+
+**Serie 2: no se transforma.** Esta serie muestra por qué una varianza menor no basta para diferenciar. $(1-B)$ baja la varianza de `r f(fila("serie2", "Ninguna", "varianza"))` a `r f(fila("serie2", "(1-B)", "varianza"))`, y la identidad explica por qué: $2(`r f(fila("serie2", "Ninguna", "varianza"))`)(1 - `r f(fila("serie2", "Ninguna", "r1"), 3)`) =$ `r f(fila("serie2", "(1-B)", "varianza_identidad"))`. Cuando $\rho_1 > 0.5$, diferenciar reduce la varianza aunque la serie ya sea estacionaria. Pero no hay nada que quitar: la pendiente por mínimos cuadrados es `r f(resultados$serie2$transformacion$pendiente_mco, 4)` MWh por día y la media de $\nabla Y_t$ es `r f(fila("serie2", "(1-B)", "media"), 3)`, ambas prácticamente cero. Al diferenciar, $r_1$ pasa de `r f(fila("serie2", "Ninguna", "r1"), 3)` a `r f(fila("serie2", "(1-B)", "r1"), 3)`, y con $(1-B)^2$ a `r f(fila("serie2", "(1-B)^2", "r1"), 3)` con varianza `r f(fila("serie2", "(1-B)^2", "varianza"))`: diferencias de más. *Verificación de la media:* sin transformar, la serie debe dejar su nivel, `r f(fila("serie2", "Ninguna", "media"))` MWh, cuya estabilidad se comprueba por bloques en la sección 5(c).
+
+**Serie 3: se elige $(1-B)$.** Es la de menor varianza, `r f(fila("serie3", "(1-B)", "varianza"))`, con $r_1 =$ `r f(fila("serie3", "(1-B)", "r1"), 3)`. $(1-B)^2$ es diferenciar de más: la varianza sube a `r f(fila("serie3", "(1-B)^2", "varianza"))` y $r_1$ cae a `r f(fila("serie3", "(1-B)^2", "r1"), 3)`, cerca de $-0.5$; la identidad se cumple al diferenciar $(1-B)Y_t$ (`r f(fila("serie3", "(1-B)^2", "varianza_identidad"))` frente a `r f(fila("serie3", "(1-B)^2", "varianza"))`), lo que confirma que $(1-B)Y_t$ ya es estacionaria. $(1-B^{12})$ deja $r_1 =$ `r f(fila("serie3", "(1-B^12)", "r1"), 3)`: elimina una estacionalidad que no existe y no quita la dependencia mes a mes.
+
+*Verificación de la media.* $(1-B)$ convierte $\beta_0 + \beta_1 t$ en $\beta_1$. La media de $(1-B)Y_t$ es `r f(fila("serie3", "(1-B)", "media"), 3)` mil usuarios por mes, frente a la pendiente por mínimos cuadrados de `r f(resultados$serie3$transformacion$pendiente_mco, 3)`. La diferencia cabe dentro del intervalo de confianza de la media que se construye en la sección 5(c).
+
+## 4(d) Ecuaciones en diferencias de Holt y Holt-Winters
+
+Las demostraciones se hicieron a mano. La primera prueba que la función de pronóstico de Holt satisface $(1-B)^2\hat Y_{T+h} = 0$ para $h \ge 3$; la segunda, que la de Holt-Winters aditivo satisface $(1-B)(1-B^s)\hat Y_{T+h} = 0$ para $h \ge s+2$. Ambas incluyen la solución general de la ecuación en diferencias y la identificación de las raíces que corresponden a la tendencia y a la estacionalidad.
+
+![Demostración para el método de Holt](../figs/demostracion-holt.jpg){width=90%}
+
+![Demostración para el método de Holt-Winters aditivo](../figs/demostracion-holt-winters.jpg){width=90%}
+
+# 5. Dependencia y estacionariedad
+
+Esta sección se hace sobre la serie transformada elegida en la sección 4: $(1-B^{12})Y_t$ en la serie 1, $Y_t$ en la serie 2 y $(1-B)Y_t$ en la serie 3.
+
+## 5(a) ACF, PACF por Durbin-Levinson y las dos bandas
+
+`pacf_dl(r)` calcula la PACF con la recursión de Durbin y Levinson a partir de $r_1, \ldots, r_m$: $\phi_{11} = r_1$ y, para $k \ge 2$,
+$$\phi_{kk} = \frac{r_k - \sum_{j=1}^{k-1}\phi_{k-1,j}\, r_{k-j}}{1 - \sum_{j=1}^{k-1}\phi_{k-1,j}\, r_j}, \qquad \phi_{kj} = \phi_{k-1,j} - \phi_{kk}\,\phi_{k-1,k-j}.$$
+La verificación contra `pacf()` da diferencias del orden de $10^{-14}$, por debajo de $10^{-10}$:
+
+```{r}
+#| label: verif-pacf
+#| comment: ""
+lineas("PACF Durbin-Levinson")
+```
+
+Los correlogramas dibujan dos bandas al 95 %, y cada una responde una pregunta distinta:
+
+- **La banda de ruido blanco**, $\pm 1.96/\sqrt{n}$, en azul, responde *¿es esta serie ruido blanco?* Bajo esa hipótesis todos los $\rho_h$ son cero y $r_h \approx N(0, 1/n)$. Sirve para decidir si queda dependencia y para leer la PACF.
+- **La banda de Bartlett**, $\pm 1.96\sqrt{\left(1 + 2\sum_{i<h} r_i^2\right)/n}$, en rojo, responde *¿se cortó la ACF antes del rezago $h$?* Supone que $\rho_i$ puede ser distinto de cero para $i < h$ y que $\rho_j = 0$ para $j \ge h$, como en un MA($h-1$). Sirve para identificar dónde se corta la ACF.
+
+## 5(b) Ljung-Box y forma de la ACF y la PACF
+
+En cada serie se toma $m = \min\{\lfloor n/4 \rfloor, 24\}$ y, como contraste, un $m$ corto, $\lceil \ln n \rceil$. El $m$ debe cubrir los rezagos donde el correlograma muestra la estructura, sin sumar muchos rezagos vacíos que le resten potencia a la prueba. Como la prueba se aplica a una serie y no a los errores de un método, no hay parámetros estimados y $p = 0$.
+
+```{r}
+#| label: lb-cifras
+lb1 <- dep("serie1")$ljung_box
+lb2 <- dep("serie2")$ljung_box
+lb3 <- dep("serie3")$ljung_box_corto
+lb1c <- dep("serie1")$ljung_box_corto
+lb3l <- dep("serie3")$ljung_box
+```
+
+### Serie 1: $(1-B^{12})Y_t$
+
+![](../figs/serie1-acf-transformada.png){width=85%}
+
+**Elección de $m$.** La estructura está en el rezago 12, así que se usa $m = `r lb1$m`$, que cubre los rezagos 12 y 24. Con el $m$ corto, $m = `r lb1c$m`$, la prueba no incluye el rezago 12 y no rechaza ($Q = `r f(lb1c$estadistico)`$, valor p `r vp(lb1c$valor_p)`).
+
+1. **Hipótesis:** $H_0: \rho_1 = \cdots = \rho_{`r lb1$m`} = 0$ frente a $H_1$: algún $\rho_h \neq 0$ con $h \le `r lb1$m`$.
+2. **Estadístico:** $Q_m = n(n+2)\sum_{h=1}^{m} r_h^2/(n-h)$, con $n = `r dep("serie1")$n`$. Bajo $H_0$, $Q_m \sim \chi^2_{m} = \chi^2_{`r lb1$grados_libertad`}$.
+3. **Región de rechazo al 5 %:** $Q_m > \chi^2_{0.95;\,`r lb1$grados_libertad`} = `r f(lb1$valor_critico, 3)`$.
+4. **Valor observado:** $Q_m = `r f(lb1$estadistico, 3)`$, valor p `r vp(lb1$valor_p)`.
+5. **Decisión:** `r dec(lb1$valor_p)`
+6. **Lectura:** $(1-B^{12})Y_t$ no es ruido blanco; queda dependencia, y está concentrada en el rezago estacional.
+
+**Forma.** La ACF tiene un solo pico grande, $r_{12} = `r f(dep("serie1")$acf[12], 3)`$; $r_{18}$ y $r_{23}$ salen de la banda de ruido blanco pero quedan dentro de la de Bartlett, así que, dado que la ACF ya se cortó en 12, no son evidencia de más estructura. La PACF tiene picos negativos en 12 ($`r f(dep("serie1")$pacf[12], 3)`$) y 24 ($`r f(dep("serie1")$pacf[24], 3)`$) que decaen. **Es compatible con un MA(1) estacional** de período 12, $X_t = (1 + \Theta B^{12})\varepsilon_t$ con $\Theta < 0$: la ACF se corta después de 12 y la PACF decae en los rezagos estacionales. **No es compatible** con un AR estacional, cuya PACF se cortaría y cuya ACF decaería, ni con ruido blanco. Un MA(1) solo puede producir $|\rho| \le 0.5$, y $r_{12} = `r f(dep("serie1")$acf[12], 3)`$ está cerca del límite: el MA estacional está cerca de ser no invertible, señal de que la estacionalidad es casi determinista.
+
+### Serie 2: $Y_t$
+
+![](../figs/serie2-acf-transformada.png){width=85%}
+
+**Elección de $m$.** La dependencia está en los primeros rezagos, y la prueba la detecta con cualquier $m$ (con $m = `r dep("serie2")$m_corto`$, $Q = `r f(dep("serie2")$ljung_box_corto$estadistico)`$, valor p `r vp(dep("serie2")$ljung_box_corto$valor_p)`). Se usa $m = `r lb2$m`$, que además revisa los rezagos semanales 7, 14 y 21.
+
+1. **Hipótesis:** $H_0: \rho_1 = \cdots = \rho_{`r lb2$m`} = 0$ frente a $H_1$: algún $\rho_h \neq 0$ con $h \le `r lb2$m`$.
+2. **Estadístico:** $Q_m = n(n+2)\sum_{h=1}^{m} r_h^2/(n-h)$, con $n = `r dep("serie2")$n`$. Bajo $H_0$, $Q_m \sim \chi^2_{`r lb2$grados_libertad`}$.
+3. **Región de rechazo al 5 %:** $Q_m > \chi^2_{0.95;\,`r lb2$grados_libertad`} = `r f(lb2$valor_critico, 3)`$.
+4. **Valor observado:** $Q_m = `r f(lb2$estadistico, 3)`$, valor p `r vp(lb2$valor_p)`.
+5. **Decisión:** `r dec(lb2$valor_p)`
+6. **Lectura:** el consumo de un día depende del de los días anteriores; la serie no es ruido blanco.
+
+**Forma.** La ACF decae geométricamente (`r paste(f(dep("serie2")$acf[1:4], 3), collapse = ", ")`) y la PACF se corta después del rezago 1 ($\hat\phi_{11} = `r f(dep("serie2")$pacf[1], 3)`$). **Es compatible con un AR(1)** con $\phi \approx `r f(dep("serie2")$pacf[1])`$: ese proceso predice $\rho_h = \phi^h$, es decir `r paste(f(dep("serie2")$pacf[1]^(1:4), 3), collapse = ", ")`, muy cerca de lo observado. **No es compatible** con un MA($q$), porque la ACF no se corta, ni con ruido blanco.
+
+### Serie 3: $(1-B)Y_t$
+
+![](../figs/serie3-acf-transformada.png){width=85%}
+
+**Elección de $m$.** La dependencia está solo en los rezagos 1 y 2. Con $m = `r lb3l$m`$ esos dos rezagos quedan diluidos entre 22 casi nulos y la prueba no rechaza ($Q = `r f(lb3l$estadistico)`$, valor p `r vp(lb3l$valor_p)`), aunque $r_1$ y $r_2$ salen de la banda uno por uno. Por eso se usa el $m$ corto, $m = `r lb3$m`$.
+
+1. **Hipótesis:** $H_0: \rho_1 = \cdots = \rho_{`r lb3$m`} = 0$ frente a $H_1$: algún $\rho_h \neq 0$ con $h \le `r lb3$m`$.
+2. **Estadístico:** $Q_m = n(n+2)\sum_{h=1}^{m} r_h^2/(n-h)$, con $n = `r dep("serie3")$n`$. Bajo $H_0$, $Q_m \sim \chi^2_{`r lb3$grados_libertad`}$.
+3. **Región de rechazo al 5 %:** $Q_m > \chi^2_{0.95;\,`r lb3$grados_libertad`} = `r f(lb3$valor_critico, 3)`$.
+4. **Valor observado:** $Q_m = `r f(lb3$estadistico, 3)`$, valor p `r vp(lb3$valor_p)`.
+5. **Decisión:** `r dec(lb3$valor_p)`
+6. **Lectura:** el crecimiento mensual de usuarios no es ruido blanco: un mes de crecimiento alto tiende a seguirse de uno o dos meses de crecimiento menor.
+
+**Forma.** $r_1 = `r f(dep("serie3")$acf[1], 3)`$ y $r_2 = `r f(dep("serie3")$acf[2], 3)`$ salen de la banda y desde el rezago 3 todo queda dentro, mientras que la PACF decae (`r paste(f(dep("serie3")$pacf[1:3], 3), collapse = ", ")`). **Es compatible con un MA(2)** con coeficientes negativos: la ACF se corta en 2 y la PACF decae. **No es compatible** con un AR, cuya PACF se cortaría, ni con ruido blanco.
+
+## 5(c) Estacionariedad, ergodicidad y la media
+
+Cada serie transformada se divide en cuatro bloques consecutivos. Si la serie es estacionaria, la media y la varianza no deben cambiar de forma sistemática entre bloques.
+
+```{r}
+#| label: bloques
+#| echo: true
+#| results: asis
+for (k in names(resultados)) {
+  cat("\n**", resultados[[k]]$ficha$nombre, ", ", resultados[[k]]$transformacion$elegida, "**\n\n", sep = "")
+  print(knitr::kable(dep(k)$bloques, col.names = c("Bloque", "n", "Media", "Varianza"), digits = 3))
+  cat("\n")
+}
+```
+
+La media se estima con dos errores estándar. El **ingenuo**, $\hat\sigma/\sqrt{n}$, supone observaciones independientes. El de **largo plazo**, $\sqrt{\hat\sigma^2_{LP}/n}$, usa `varianza_largo_plazo()`:
+$$\hat\sigma^2_{LP} = \hat\gamma(0) + 2\sum_{h=1}^{L}\left(1 - \frac{h}{L+1}\right)\hat\gamma(h), \qquad L = \lfloor 4(n/100)^{2/9} \rfloor,$$
+con los pesos del núcleo de Bartlett. Los intervalos al 95 % son $\bar x \pm 1.96\,\widehat{EE}$.
+
+```{r}
+#| label: intervalos
+#| echo: true
+#| results: asis
+for (k in names(resultados)) {
+  d <- dep(k)
+  cat("\n**", resultados[[k]]$ficha$nombre, "**: media = ", f(d$media, 3), ", L = ", d$L,
+      ", $\\hat\\gamma(0)$ = ", f(d$gamma0, 3), ", $\\hat\\sigma^2_{LP}$ = ", f(d$varianza_largo_plazo, 3), "\n\n", sep = "")
+  print(knitr::kable(d$intervalos, col.names = c("Error estándar", "Valor", "Límite inferior", "Límite superior"), digits = 3))
+  cat("\n")
+}
+```
+
+**Por qué difieren.** $\hat\sigma^2_{LP}$ suma a $\hat\gamma(0)$ las autocovarianzas de los primeros $L$ rezagos. Con autocorrelación positiva, observaciones cercanas repiten información, la muestra equivale a menos datos independientes y la incertidumbre real es mayor que la que supone el error ingenuo; con autocorrelación negativa, los errores se compensan y la incertidumbre es menor. **El adecuado en las tres series es el de largo plazo**, porque las tres tienen dependencia según la sección 5(b).
+
+- **Serie 1.** Las medias por bloque (`r paste(f(dep("serie1")$bloques$media), collapse = ", ")`) y las varianzas son estables. Los dos intervalos casi coinciden, porque $r_1, \ldots, r_4$ son casi cero y la ventana $L = `r dep("serie1")$L`$ no alcanza el rezago 12, donde está la dependencia. **La media representa el crecimiento interanual de la demanda:** cada mes, la demanda supera en unos `r f(dep("serie1")$media, 1)` GWh a la del mismo mes del año anterior, con intervalo de largo plazo de `r f(dep("serie1")$intervalos$limite_inferior[2], 1)` a `r f(dep("serie1")$intervalos$limite_superior[2], 1)` GWh, que contiene a $12\hat\beta_1 = `r f(fila("serie1", "(1-B^12)", "media_esperada"), 1)`$.
+- **Serie 2.** Las medias por bloque son estables (`r paste(f(dep("serie2")$bloques$media), collapse = ", ")`); el tercer bloque tiene menor varianza, un período más tranquilo, pero sin tendencia. El error de largo plazo es `r f(dep("serie2")$intervalos$valor[2] / dep("serie2")$intervalos$valor[1])` veces el ingenuo, por la autocorrelación positiva: el intervalo ingenuo subestima la incertidumbre. **La media representa el consumo diario típico de la estación**, `r f(dep("serie2")$media, 1)` MWh, con intervalo de largo plazo de `r f(dep("serie2")$intervalos$limite_inferior[2], 2)` a `r f(dep("serie2")$intervalos$limite_superior[2], 2)` MWh.
+- **Serie 3.** Las medias por bloque (`r paste(f(dep("serie3")$bloques$media, 3), collapse = ", ")`) y las varianzas son estables. Aquí el intervalo de largo plazo es más angosto que el ingenuo, porque las autocorrelaciones de los rezagos 1 y 2 son negativas. **La media representa el crecimiento mensual de la red**: `r f(dep("serie3")$media, 2)` mil usuarios por mes, con intervalo de largo plazo de `r f(dep("serie3")$intervalos$limite_inferior[2], 2)` a `r f(dep("serie3")$intervalos$limite_superior[2], 2)` mil, que contiene la pendiente por mínimos cuadrados de `r f(resultados$serie3$transformacion$pendiente_mco, 2)`.
+
+# Bloques de verificación
+
+```{r}
+#| label: verificacion
+#| comment: ""
+inicio <- grep("BLOQUES DE VERIFICACION", salida)[1] - 1
+cat(salida[inicio:length(salida)], sep = "\n")
+```
