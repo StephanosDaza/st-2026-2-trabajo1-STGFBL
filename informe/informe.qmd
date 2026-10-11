@@ -432,6 +432,71 @@ for (k in names(resultados)) {
 - **Serie 2.** Las medias por bloque son estables (`r paste(f(dep("serie2")$bloques$media), collapse = ", ")`); el tercer bloque tiene menor varianza, un período más tranquilo, pero sin tendencia. El error de largo plazo es `r f(dep("serie2")$intervalos$valor[2] / dep("serie2")$intervalos$valor[1])` veces el ingenuo, por la autocorrelación positiva: el intervalo ingenuo subestima la incertidumbre. **La media representa el consumo diario típico de la estación**, `r f(dep("serie2")$media, 1)` MWh, con intervalo de largo plazo de `r f(dep("serie2")$intervalos$limite_inferior[2], 2)` a `r f(dep("serie2")$intervalos$limite_superior[2], 2)` MWh.
 - **Serie 3.** Las medias por bloque (`r paste(f(dep("serie3")$bloques$media, 3), collapse = ", ")`) y las varianzas son estables. Aquí el intervalo de largo plazo es más angosto que el ingenuo, porque las autocorrelaciones de los rezagos 1 y 2 son negativas. **La media representa el crecimiento mensual de la red**: `r f(dep("serie3")$media, 2)` mil usuarios por mes, con intervalo de largo plazo de `r f(dep("serie3")$intervalos$limite_inferior[2], 2)` a `r f(dep("serie3")$intervalos$limite_superior[2], 2)` mil, que contiene la pendiente por mínimos cuadrados de `r f(resultados$serie3$transformacion$pendiente_mco, 2)`.
 
+# 6. Pronóstico y evaluación
+
+## 6(a) Métodos, asignación y optimización
+
+Los parámetros se eligieron exclusivamente sobre las primeras $n_0=\lfloor0.8T\rfloor$ observaciones de cada serie. Las rejillas son las exigidas por la guía: $k=2,\ldots,12$ para media móvil; $\alpha=0.02,\ldots,0.98$ para SES; $k=3,\ldots,12$ para doble media móvil; paso 0.05 para $(\alpha,\beta)$ de Holt; y paso 0.1 para $(\alpha,\beta,\gamma)$ de Holt-Winters. El criterio es el MSE de los pronósticos de un paso disponibles después del calentamiento de cada método. Este MSE elige parámetros **dentro de cada método**; todavía no se usa para ordenar métodos, tarea reservada al origen móvil sobre orígenes comunes.
+
+La tabla muestra la asignación completa. “Contraste” significa que el método se ejecuta precisamente porque su supuesto contradice el diagnóstico y permitirá medir el costo de esa contradicción.
+
+```{r}
+#| label: asignacion-metodos
+#| echo: true
+tabla_asignacion |>
+  select(metodo, serie, rol) |>
+  pivot_wider(names_from = serie, values_from = rol) |>
+  knitr::kable(
+    col.names = c("Método", "Serie 1", "Serie 2", "Serie 3")
+  )
+```
+
+La evidencia que gobierna la asignación es:
+
+```{r}
+#| label: evidencia-asignacion
+#| echo: true
+tabla_asignacion |>
+  distinct(serie, evidencia) |>
+  knitr::kable(col.names = c("Serie", "Evidencia"))
+```
+
+Con esta distribución, los trece métodos se aplican al menos una vez y cada serie incluye un contraste. Los parámetros seleccionados en el tramo de estimación son:
+
+```{r}
+#| label: optimos-estimacion
+#| echo: true
+tabla_optimos |>
+  select(serie, metodo, parametros, mse_estimacion) |>
+  arrange(serie, metodo) |>
+  knitr::kable(
+    col.names = c("Serie", "Método", "Parámetros", "MSE de estimación"),
+    digits = 3
+  )
+```
+
+### Curvas y mapas de MSE
+
+La marca roja en las curvas y la cruz blanca en los mapas identifican el mínimo de la rejilla.
+
+**Serie 1**
+
+![](../figs/serie1-mse-dmm.png){width=48%}
+![](../figs/serie1-mse-holt.png){width=48%}
+
+![](../figs/serie1-mse-hw_aditivo.png){width=48%}
+![](../figs/serie1-mse-hw_multiplicativo.png){width=48%}
+
+**Serie 2**
+
+![](../figs/serie2-mse-mm.png){width=48%}
+![](../figs/serie2-mse-ses.png){width=48%}
+
+**Serie 3**
+
+![](../figs/serie3-mse-dmm.png){width=48%}
+![](../figs/serie3-mse-holt.png){width=48%}
+
 # Bloques de verificación
 
 ```{r}

@@ -263,6 +263,66 @@ for (k in names(config)) {
   print(as.data.frame(intervalos), digits = 4)
 }
 
+
+# PUNTO 6(a): METODOS, ASIGNACION Y OPTIMIZACION EN ESTIMACION
+
+tabla_asignacion <- definir_asignacion_metodos(crear_catalogo_metodos(config$serie1$s))
+tabla_optimos <- list()
+
+for (k in names(config)) {
+  cfg <- config[[k]]
+  y <- resultados[[k]]$datos$y
+  n0 <- resultados[[k]]$particion$n0
+  y_estimacion <- y[seq_len(n0)]
+  catalogo <- crear_catalogo_metodos(cfg$s)
+  decisiones <- tabla_asignacion[
+    tabla_asignacion$serie == k & tabla_asignacion$decision,
+  ]
+  ajustes <- list()
+
+  for (id in decisiones$metodo_id) {
+    especificacion <- catalogo[[id]]
+    ajuste <- ajustar_especificacion(y_estimacion, especificacion)
+    ajustes[[id]] <- ajuste
+
+    if (!is.null(ajuste$superficie)) {
+      parametros <- paste(
+        paste(names(ajuste$parametros), unlist(ajuste$parametros), sep = "="),
+        collapse = ", "
+      )
+      tabla_optimos[[length(tabla_optimos) + 1L]] <- tibble(
+        serie = k,
+        metodo_id = id,
+        metodo = especificacion$nombre,
+        parametros = parametros,
+        mse_estimacion = ajuste$mse
+      )
+      guardar(
+        graficar_optimizacion(
+          ajuste,
+          paste(especificacion$nombre, "-", k)
+        ),
+        paste0(k, "-mse-", id),
+        ancho = if (ncol(ajuste$parametros) == 3L) 10 else 7,
+        alto = if (ncol(ajuste$parametros) == 3L) 8 else 5
+      )
+    }
+  }
+
+  resultados[[k]]$pronostico <- list(
+    y_estimacion = y_estimacion,
+    asignacion = decisiones,
+    ajustes_estimacion = ajustes
+  )
+}
+
+tabla_optimos <- bind_rows(tabla_optimos)
+
+cat("\n>>> ASIGNACION DE METODOS\n")
+print(as.data.frame(tabla_asignacion[, c("serie", "metodo", "rol")]))
+cat("\n>>> PARAMETROS OPTIMOS EN EL TRAMO DE ESTIMACION\n")
+print(as.data.frame(tabla_optimos), digits = 6)
+
 # BLOQUES DE VERIFICACION
 
 cat("\n\n====================================================================\n")
