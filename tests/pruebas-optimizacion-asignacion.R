@@ -34,6 +34,12 @@ asignacion <- definir_asignacion_metodos(catalogo)
 stopifnot(
   length(catalogo) == 13L,
   nrow(asignacion) == 39L,
+  sum(asignacion$decision) == 16L,
+  identical(
+    asignacion$metodo_id[asignacion$serie == "serie1" & asignacion$decision],
+    c("ingenuo_estacional", "tendencia_estacional", "hw_aditivo",
+      "hw_multiplicativo")
+  ),
   all(vapply(names(catalogo), function(id) {
     any(asignacion$metodo_id == id & asignacion$decision)
   }, logical(1))),

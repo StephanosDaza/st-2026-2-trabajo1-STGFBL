@@ -438,7 +438,7 @@ for (k in names(resultados)) {
 
 Los parámetros se eligieron exclusivamente sobre las primeras $n_0=\lfloor0.8T\rfloor$ observaciones de cada serie. Las rejillas son las exigidas por la guía: $k=2,\ldots,12$ para media móvil; $\alpha=0.02,\ldots,0.98$ para SES; $k=3,\ldots,12$ para doble media móvil; paso 0.05 para $(\alpha,\beta)$ de Holt; y paso 0.1 para $(\alpha,\beta,\gamma)$ de Holt-Winters. El criterio es el MSE de los pronósticos de un paso disponibles después del calentamiento de cada método. Este MSE elige parámetros **dentro de cada método**; todavía no se usa para ordenar métodos, tarea reservada al origen móvil sobre orígenes comunes.
 
-La tabla muestra la asignación completa. “Contraste” significa que el método se ejecuta precisamente porque su supuesto contradice el diagnóstico y permitirá medir el costo de esa contradicción.
+La selección se hace primero por compatibilidad estructural: a la serie 1, que es estacional, se le asignan métodos capaces de representar estacionalidad; a las series 2 y 3, sin estacionalidad material, se les asignan métodos no estacionales acordes con su nivel o tendencia. “Contraste” identifica el único candidato cuya forma estacional contradice deliberadamente el diagnóstico. Este filtro reduce la evaluación de 21 a 16 combinaciones método-serie.
 
 ```{r}
 #| label: asignacion-metodos
@@ -447,7 +447,7 @@ tabla_asignacion |>
   select(metodo, serie, rol) |>
   pivot_wider(names_from = serie, values_from = rol) |>
   knitr::kable(
-    col.names = c("Método", "Serie 1", "Serie 2", "Serie 3")
+    col.names = c("Metodo", "Serie 1", "Serie 2", "Serie 3")
   )
 ```
 
@@ -480,9 +480,6 @@ tabla_optimos |>
 La marca roja en las curvas y la cruz blanca en los mapas identifican el mínimo de la rejilla.
 
 **Serie 1**
-
-![](../figs/serie1-mse-dmm.png){width=48%}
-![](../figs/serie1-mse-holt.png){width=48%}
 
 ![](../figs/serie1-mse-hw_aditivo.png){width=48%}
 ![](../figs/serie1-mse-hw_multiplicativo.png){width=48%}

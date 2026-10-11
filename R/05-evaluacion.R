@@ -220,9 +220,7 @@ definir_asignacion_metodos <- function(catalogo) {
     stop("catalogo debe provenir de crear_catalogo_metodos().", call. = FALSE)
   }
   aplicados <- list(
-    serie1 = c("ingenuo_estacional", "dmm", "tendencia_lineal",
-               "tendencia_cuadratica", "tendencia_exponencial",
-               "tendencia_estacional", "holt", "hw_aditivo"),
+    serie1 = c("ingenuo_estacional", "tendencia_estacional", "hw_aditivo"),
     serie2 = c("media", "ingenuo", "mm", "ses"),
     serie3 = c("ingenuo", "dmm", "tendencia_lineal", "tendencia_cuadratica",
                "tendencia_exponencial", "holt")
@@ -235,7 +233,8 @@ definir_asignacion_metodos <- function(catalogo) {
   evidencia <- c(
     serie1 = paste(
       "Tendencia creciente y estacionalidad mensual s=12;",
-      "la correlacion entre media y desviacion por ciclo es 0.014, compatible con amplitud aditiva."
+      "se restringe la comparacion a metodos que representan estacionalidad.",
+      "La amplitud es aditiva (correlacion media-desviacion 0.014)."
     ),
     serie2 = paste(
       "Nivel estable y dependencia local; el rango de medias por dia es 0.691 MWh",
