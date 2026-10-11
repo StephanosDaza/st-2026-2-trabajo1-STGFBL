@@ -279,6 +279,244 @@ ajustar_holt <- function(y, alpha, beta) {
   )
 }
 
+validar_periodo_estacional <- function(s, n, ciclos_minimos = 1L) {
+  if (length(s) != 1L || !is.numeric(s) || !is.finite(s) ||
+      s != round(s) || s < 2) {
+    stop("s debe ser un entero mayor o igual que 2.", call. = FALSE)
+  }
+  s <- as.integer(s)
+  if (n < ciclos_minimos * s) {
+    stop("y debe contener al menos ", ciclos_minimos,
+         " ciclos estacionales completos.", call. = FALSE)
+  }
+  s
+}
+
+ajustar_ingenuo <- function(y) {
+  y <- validar_y(y)
+  n <- length(y)
+  yhat <- c(NA_real_, y[-n])
+  ultimo <- y[n]
+
+  list(
+    yhat = yhat,
+    pronosticar = function(h) rep(ultimo, validar_h(h)),
+    parametros = list(ultimo_valor = ultimo)
+  )
+}
+
+ajustar_ingenuo_estacional <- function(y, s) {
+  y <- validar_y(y)
+  n <- length(y)
+  s <- validar_periodo_estacional(s, n)
+  yhat <- rep(NA_real_, n)
+  if (n > s) yhat[(s + 1L):n] <- y[seq_len(n - s)]
+  ultimo_ciclo <- tail(y, s)
+
+  list(
+    yhat = yhat,
+    pronosticar = function(h) {
+      h <- validar_h(h)
+      rep(ultimo_ciclo, length.out = h)
+    },
+    parametros = list(s = s, ultimo_ciclo = ultimo_ciclo)
+  )
+}
+
+matriz_tendencia_estacional <- function(t, s) {
+  estacion <- (as.integer(t) - 1L) %% s + 1L
+  X <- cbind(intercepto = 1, t = as.numeric(t))
+  for (j in 2:s) X <- cbind(X, as.numeric(estacion == j) - as.numeric(estacion == 1L))
+  colnames(X)[-(1:2)] <- paste0("gamma_", 2:s)
+  X
+}
+
+ajustar_tendencia_estacional <- function(y, s) {
+  y <- validar_y(y)
+  n <- length(y)
+  s <- validar_periodo_estacional(s, n, ciclos_minimos = 2L)
+  X <- matriz_tendencia_estacional(seq_len(n), s)
+  q <- ncol(X)
+  coeficientes <- as.numeric(solve(crossprod(X), crossprod(X, y)))
+  names(coeficientes) <- colnames(X)
+  ajuste <- as.numeric(X %*% coeficientes)
+  residuos <- y - ajuste
+  gl <- n - q
+  sigma2 <- sum(residuos^2) / gl
+  cov_ordinaria <- sigma2 * solve(crossprod(X))
+  hac <- cov_hac(X, residuos)
+  se_ordinario <- sqrt(pmax(0, diag(cov_ordinaria)))
+  se_hac <- sqrt(pmax(0, diag(hac$cov)))
+  t_hac <- coeficientes / se_hac
+  tabla_coeficientes <- tibble::tibble(
+    termino = names(coeficientes),
+    estimacion = coeficientes,
+    se_ordinario = se_ordinario,
+    se_hac = se_hac,
+    t_robusto = t_hac,
+    p_valor_robusto = 2 * stats::pt(abs(t_hac), df = gl, lower.tail = FALSE)
+  )
+
+  efectos_estacionales <- c(
+    -sum(coeficientes[paste0("gamma_", 2:s)]),
+    coeficientes[paste0("gamma_", 2:s)]
+  )
+  names(efectos_estacionales) <- paste0("estacion_", seq_len(s))
+
+  yhat <- rep(NA_real_, n)
+  if (n > 2L * s) {
+    for (tt in (2L * s + 1L):n) {
+      indices <- seq_len(tt - 1L)
+      X0 <- matriz_tendencia_estacional(indices, s)
+      b0 <- as.numeric(solve(crossprod(X0), crossprod(X0, y[indices])))
+      yhat[tt] <- as.numeric(matriz_tendencia_estacional(tt, s) %*% b0)
+    }
+  }
+
+  list(
+    yhat = yhat,
+    pronosticar = function(h) {
+      h <- validar_h(h)
+      as.numeric(matriz_tendencia_estacional(n + seq_len(h), s) %*% coeficientes)
+    },
+    parametros = list(
+      s = s,
+      coeficientes = tabla_coeficientes,
+      efectos_estacionales = efectos_estacionales,
+      R2 = if (sum((y - mean(y))^2) == 0) NA_real_ else
+        1 - sum(residuos^2) / sum((y - mean(y))^2),
+      sigma2 = sigma2,
+      cov_hac = hac$cov,
+      rezagos_hac = hac$rezagos,
+      ajuste_muestra_completa = ajuste,
+      residuos = residuos,
+      matriz_diseno = X
+    )
+  )
+}
+
+inicializar_hw <- function(y, s, tipo = c("aditivo", "multiplicativo")) {
+  tipo <- match.arg(tipo)
+  ventana <- y[seq_len(2L * s)]
+  medias <- c(mean(ventana[seq_len(s)]), mean(ventana[s + seq_len(s)]))
+  pendiente <- (medias[2] - medias[1]) / s
+  nivel_inicial <- medias[1] - pendiente * (s - 1) / 2
+  tendencia <- nivel_inicial + pendiente * (seq_len(2L * s) - 1L)
+
+  if (tipo == "aditivo") {
+    estacional <- vapply(seq_len(s), function(j) {
+      mean(ventana[c(j, j + s)] - tendencia[c(j, j + s)])
+    }, numeric(1))
+    estacional <- estacional - mean(estacional)
+  } else {
+    if (any(tendencia <= 0)) {
+      stop("La inicializacion multiplicativa produjo un nivel no positivo.", call. = FALSE)
+    }
+    estacional <- vapply(seq_len(s), function(j) {
+      mean(ventana[c(j, j + s)] / tendencia[c(j, j + s)])
+    }, numeric(1))
+    estacional <- estacional / mean(estacional)
+    if (any(!is.finite(estacional)) || any(estacional <= 0)) {
+      stop("Los indices estacionales multiplicativos deben ser positivos.", call. = FALSE)
+    }
+  }
+
+  list(
+    nivel = nivel_inicial + pendiente * (2L * s - 1L),
+    pendiente = pendiente,
+    estacional = estacional,
+    nivel_origen = nivel_inicial
+  )
+}
+
+ajustar_hw_base <- function(y, s, alpha, beta, gamma,
+                            tipo = c("aditivo", "multiplicativo")) {
+  tipo <- match.arg(tipo)
+  y <- validar_y(y)
+  n <- length(y)
+  s <- validar_periodo_estacional(s, n, ciclos_minimos = 2L)
+  alpha <- validar_parametro_unitario(alpha, "alpha")
+  beta <- validar_parametro_unitario(beta, "beta")
+  gamma <- validar_parametro_unitario(gamma, "gamma")
+  if (tipo == "multiplicativo" && any(y <= 0)) {
+    stop("Holt-Winters multiplicativo exige observaciones positivas.", call. = FALSE)
+  }
+
+  inicio <- inicializar_hw(y, s, tipo)
+  corte <- 2L * s
+  nivel <- pendiente <- yhat <- rep(NA_real_, n)
+  estacional_historia <- rep(NA_real_, n)
+  nivel[corte] <- inicio$nivel
+  pendiente[corte] <- inicio$pendiente
+  estacional_actual <- inicio$estacional
+  estacional_historia[(corte - s + 1L):corte] <- estacional_actual
+
+  if (n > corte) {
+    for (tt in (corte + 1L):n) {
+      j <- (tt - 1L) %% s + 1L
+      base <- nivel[tt - 1L] + pendiente[tt - 1L]
+      if (tipo == "aditivo") {
+        yhat[tt] <- base + estacional_actual[j]
+        nivel[tt] <- alpha * (y[tt] - estacional_actual[j]) + (1 - alpha) * base
+        pendiente[tt] <- beta * (nivel[tt] - nivel[tt - 1L]) +
+          (1 - beta) * pendiente[tt - 1L]
+        estacional_actual[j] <- gamma * (y[tt] - nivel[tt]) +
+          (1 - gamma) * estacional_actual[j]
+      } else {
+        if (base <= 0) stop("El nivel multiplicativo debe permanecer positivo.", call. = FALSE)
+        yhat[tt] <- base * estacional_actual[j]
+        nivel[tt] <- alpha * (y[tt] / estacional_actual[j]) + (1 - alpha) * base
+        pendiente[tt] <- beta * (nivel[tt] - nivel[tt - 1L]) +
+          (1 - beta) * pendiente[tt - 1L]
+        if (nivel[tt] <= 0) stop("El nivel multiplicativo debe permanecer positivo.", call. = FALSE)
+        estacional_actual[j] <- gamma * (y[tt] / nivel[tt]) +
+          (1 - gamma) * estacional_actual[j]
+      }
+      estacional_historia[tt] <- estacional_actual[j]
+    }
+  }
+
+  nivel_final <- nivel[n]
+  pendiente_final <- pendiente[n]
+  estacional_final <- estacional_actual
+  pronosticar <- function(h) {
+    h <- validar_h(h)
+    posiciones <- (n + seq_len(h) - 1L) %% s + 1L
+    base <- nivel_final + pendiente_final * seq_len(h)
+    if (tipo == "aditivo") base + estacional_final[posiciones] else
+      base * estacional_final[posiciones]
+  }
+
+  list(
+    yhat = yhat,
+    pronosticar = pronosticar,
+    parametros = list(
+      tipo = tipo,
+      s = s,
+      alpha = alpha,
+      beta = beta,
+      gamma = gamma,
+      nivel_inicial = inicio$nivel_origen,
+      pendiente_inicial = inicio$pendiente,
+      estacional_inicial = inicio$estacional,
+      nivel_final = nivel_final,
+      pendiente_final = pendiente_final,
+      estacional_final = estacional_final,
+      nivel = nivel,
+      pendiente = pendiente,
+      estacional = estacional_historia
+    )
+  )
+}
+
+ajustar_hw <- function(y, s, alpha, beta, gamma) {
+  ajustar_hw_base(y, s, alpha, beta, gamma, tipo = "aditivo")
+}
+
+ajustar_hw_mult <- function(y, s, alpha, beta, gamma) {
+  ajustar_hw_base(y, s, alpha, beta, gamma, tipo = "multiplicativo")
+}
+
 mse_un_paso <- function(modelo, y) {
   y <- validar_y(y)
   if (!is.list(modelo) || !all(c("yhat", "pronosticar", "parametros") %in% names(modelo)) ||
