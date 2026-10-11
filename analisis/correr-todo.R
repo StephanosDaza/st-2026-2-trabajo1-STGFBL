@@ -323,6 +323,81 @@ print(as.data.frame(tabla_asignacion[, c("serie", "metodo", "rol")]))
 cat("\n>>> PARAMETROS OPTIMOS EN EL TRAMO DE ESTIMACION\n")
 print(as.data.frame(tabla_optimos), digits = 6)
 
+
+# PUNTO 6(b): REGRESIONES Y DIAGNOSTICO DE RESIDUOS
+
+tabla_coeficientes_regresion <- list()
+tabla_dependencia_regresion <- list()
+tabla_normalidad_regresion <- list()
+
+for (k in names(config)) {
+  ids_regresion <- tabla_asignacion$metodo_id[
+    tabla_asignacion$serie == k & tabla_asignacion$decision &
+      grepl("^tendencia_", tabla_asignacion$metodo_id)
+  ]
+  diagnosticos <- list()
+
+  for (id in ids_regresion) {
+    ajuste <- resultados[[k]]$pronostico$ajustes_estimacion[[id]]
+    modelo <- ajuste$modelo
+    diagnostico <- diagnosticar_regresion(modelo)
+    diagnosticos[[id]] <- diagnostico
+    nombre_metodo <- tabla_asignacion$metodo[
+      tabla_asignacion$serie == k & tabla_asignacion$metodo_id == id
+    ][1]
+
+    coeficientes <- modelo$parametros$coeficientes
+    tabla_coeficientes_regresion[[length(tabla_coeficientes_regresion) + 1L]] <-
+      bind_cols(
+        tibble(serie = k, metodo = nombre_metodo, escala = diagnostico$escala),
+        coeficientes
+      )
+
+    lb <- diagnostico$ljung_box
+    dw <- diagnostico$durbin_watson
+    tabla_dependencia_regresion[[length(tabla_dependencia_regresion) + 1L]] <- tibble(
+      serie = k, metodo = nombre_metodo, escala = diagnostico$escala,
+      n = diagnostico$n, m = diagnostico$m,
+      r1 = dw$r1, banda = diagnostico$banda_ruido_blanco,
+      Q = lb$estadistico, gl = lb$grados_libertad,
+      valor_critico = lb$valor_critico, valor_p = lb$valor_p,
+      decision = lb$decision, DW = dw$estadistico,
+      aproximacion_DW = dw$aproximacion
+    )
+
+    jb <- diagnostico$jarque_bera
+    tabla_normalidad_regresion[[length(tabla_normalidad_regresion) + 1L]] <- tibble(
+      serie = k, metodo = nombre_metodo, escala = diagnostico$escala,
+      JB = jb$estadistico, gl = jb$grados_libertad,
+      valor_critico = jb$valor_critico, valor_p = jb$valor_p,
+      decision = jb$decision, asimetria = jb$asimetria,
+      curtosis = jb$curtosis
+    )
+
+    guardar(
+      correlograma(
+        diagnostico$residuos,
+        m = diagnostico$m,
+        titulo = paste(nombre_metodo, "-", k)
+      ),
+      paste0(k, "-residuos-", id),
+      ancho = 9, alto = 7
+    )
+  }
+  resultados[[k]]$pronostico$diagnosticos_regresion <- diagnosticos
+}
+
+tabla_coeficientes_regresion <- bind_rows(tabla_coeficientes_regresion)
+tabla_dependencia_regresion <- bind_rows(tabla_dependencia_regresion)
+tabla_normalidad_regresion <- bind_rows(tabla_normalidad_regresion)
+
+cat("\n>>> COEFICIENTES DE LAS REGRESIONES\n")
+print(as.data.frame(tabla_coeficientes_regresion), digits = 5)
+cat("\n>>> DEPENDENCIA EN RESIDUOS DE REGRESION\n")
+print(as.data.frame(tabla_dependencia_regresion), digits = 5)
+cat("\n>>> NORMALIDAD EN RESIDUOS DE REGRESION\n")
+print(as.data.frame(tabla_normalidad_regresion), digits = 5)
+
 # BLOQUES DE VERIFICACION
 
 cat("\n\n====================================================================\n")

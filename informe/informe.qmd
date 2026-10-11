@@ -494,6 +494,83 @@ La marca roja en las curvas y la cruz blanca en los mapas identifican el mínimo
 ![](../figs/serie3-mse-dmm.png){width=48%}
 ![](../figs/serie3-mse-holt.png){width=48%}
 
+## 6(b) Regresiones
+
+Las regresiones se ajustan sobre el tramo de estimación. Para cada coeficiente se presenta el error estándar ordinario y el HAC con núcleo de Bartlett. La prueba $t$ usa el error HAC, porque la autocorrelación residual invalida el error ordinario aunque los coeficientes de mínimos cuadrados conserven su interpretación. En la tendencia exponencial, coeficientes y residuos están en escala logarítmica.
+
+```{r}
+#| label: coeficientes-regresiones
+#| echo: true
+#| results: asis
+claves <- unique(tabla_coeficientes_regresion[, c("serie", "metodo", "escala")])
+for (i in seq_len(nrow(claves))) {
+  clave <- claves[i, ]
+  tb <- tabla_coeficientes_regresion |>
+    filter(serie == clave$serie, metodo == clave$metodo) |>
+    select(termino, estimacion, se_ordinario, se_hac, t_robusto, p_valor_robusto)
+  cat("\n**", clave$serie, " - ", clave$metodo,
+      " (escala ", clave$escala, ")**\n\n", sep = "")
+  print(knitr::kable(
+    tb,
+    col.names = c("Termino", "Estimacion", "EE ordinario", "EE HAC", "t robusto", "Valor p"),
+    digits = 4
+  ))
+  cat("\n")
+}
+```
+
+En la serie 1 la pendiente es positiva y todos los efectos estacionales estimados en la codificación de suma cero resultan significativos al 5 %. En la serie 3, el término cuadrático no es significativo ($p=$ `r vp(tabla_coeficientes_regresion$p_valor_robusto[tabla_coeficientes_regresion$serie == "serie3" & tabla_coeficientes_regresion$metodo == "Tendencia cuadratica" & tabla_coeficientes_regresion$termino == "t2"])`), y ninguno de los efectos estacionales del modelo de contraste es significativo. Esto coincide con el diagnóstico previo: crecimiento aproximadamente lineal y ausencia de estacionalidad material.
+
+### Dependencia residual
+
+Para cada regresión se contrasta
+$$H_0:\rho_1=\cdots=\rho_m=0 \qquad\text{contra}\qquad H_1:\text{alguna }\rho_h\ne0.$$
+El estadístico es $Q_m=n(n+2)\sum_{h=1}^m r_h^2/(n-h)$ y se refiere a $\chi_m^2$: los coeficientes de regresores deterministas no se descuentan de los grados de libertad. Se usa $m=\min\{\lfloor n/4\rfloor,24\}=24$. La tabla contiene los seis elementos de la prueba, además de $r_1$ y Durbin-Watson.
+
+```{r}
+#| label: diagnostico-dependencia-regresiones
+#| echo: true
+tabla_dependencia_regresion |>
+  select(serie, metodo, escala, n, m, r1, banda, Q, gl,
+         valor_critico, valor_p, decision, DW, aproximacion_DW) |>
+  knitr::kable(
+    col.names = c("Serie", "Metodo", "Escala", "n", "m", "r1", "Banda",
+                  "Q", "gl", "Critico", "Valor p", "Decision", "DW", "2(1-r1)"),
+    digits = 4
+  )
+```
+
+**Serie 1.** La tendencia con ficticias no rechaza ausencia conjunta de autocorrelación ($Q=`r f(tabla_dependencia_regresion$Q[1])`$, valor p `r vp(tabla_dependencia_regresion$valor_p[1])`). $DW=`r f(tabla_dependencia_regresion$DW[1])`$ es prácticamente 2 y coincide con $2(1-r_1)$: después de retirar tendencia y estacionalidad no queda dependencia lineal detectable.
+
+**Serie 3.** Las cuatro regresiones rechazan $H_0$. Sus $r_1$ están entre `r f(min(tabla_dependencia_regresion$r1[tabla_dependencia_regresion$serie == "serie3"]), 3)` y `r f(max(tabla_dependencia_regresion$r1[tabla_dependencia_regresion$serie == "serie3"]), 3)`, y los valores de Durbin-Watson entre `r f(min(tabla_dependencia_regresion$DW[tabla_dependencia_regresion$serie == "serie3"]), 3)` y `r f(max(tabla_dependencia_regresion$DW[tabla_dependencia_regresion$serie == "serie3"]), 3)` señalan autocorrelación positiva. Las formas deterministas describen el crecimiento, pero no capturan toda la dinámica mensual; la tendencia exponencial deja la mayor dependencia.
+
+![](../figs/serie1-residuos-tendencia_estacional.png){width=70%}
+
+![](../figs/serie3-residuos-tendencia_lineal.png){width=48%}
+![](../figs/serie3-residuos-tendencia_cuadratica.png){width=48%}
+
+![](../figs/serie3-residuos-tendencia_exponencial.png){width=48%}
+![](../figs/serie3-residuos-tendencia_estacional.png){width=48%}
+
+### Normalidad residual
+
+Jarque-Bera contrasta $H_0$: asimetría cero y curtosis tres, contra el incumplimiento conjunto de ambas condiciones. Bajo $H_0$, $JB\sim\chi_2^2$ y la región de rechazo al 5 % es $JB>5.991$. La normalidad es instrumental para inferencia e intervalos; no sustituye la condición sustantiva de residuos sin autocorrelación.
+
+```{r}
+#| label: diagnostico-normalidad-regresiones
+#| echo: true
+tabla_normalidad_regresion |>
+  select(serie, metodo, escala, JB, gl, valor_critico, valor_p,
+         decision, asimetria, curtosis) |>
+  knitr::kable(
+    col.names = c("Serie", "Metodo", "Escala", "JB", "gl", "Critico",
+                  "Valor p", "Decision", "Asimetria", "Curtosis"),
+    digits = 4
+  )
+```
+
+Jarque-Bera no rechaza normalidad en ninguna regresión al 5 %. Esta conclusión no rescata las regresiones de la serie 3 como modelos completos: sus residuos siguen autocorrelacionados según Ljung-Box y Durbin-Watson.
+
 # Bloques de verificación
 
 ```{r}

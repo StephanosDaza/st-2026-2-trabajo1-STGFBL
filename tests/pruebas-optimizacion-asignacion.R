@@ -1,4 +1,5 @@
 source("R/04-metodos.R")
+source("R/03-dependencia.R")
 source("R/05-evaluacion.R")
 
 y <- c(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21)
@@ -59,5 +60,26 @@ stopifnot(
            "try-error"),
   inherits(try(crear_catalogo_metodos(1), silent = TRUE), "try-error")
 )
+
+t <- seq_len(60)
+y_reg <- 5 + 0.4 * t + rep(c(-1.2, 0.4, 0.8), length.out = length(t))
+modelo_reg <- ajustar_tendencia(y_reg, "lineal")
+diagnostico <- diagnosticar_regresion(modelo_reg, m = 10)
+stopifnot(
+  diagnostico$escala == "original",
+  diagnostico$ljung_box$grados_libertad == 10L,
+  diagnostico$jarque_bera$grados_libertad == 2L,
+  isTRUE(all.equal(
+    diagnostico$durbin_watson$estadistico,
+    sum(diff(diagnostico$residuos)^2) / sum(diagnostico$residuos^2)
+  )),
+  isTRUE(all.equal(
+    diagnostico$durbin_watson$aproximacion,
+    2 * (1 - diagnostico$durbin_watson$r1)
+  ))
+)
+
+modelo_exp <- ajustar_tendencia(exp(1 + 0.02 * t + 0.01 * sin(t)), "exponencial")
+stopifnot(diagnosticar_regresion(modelo_exp, m = 10)$escala == "logaritmica")
 
 message("Optimizacion y asignacion: todas las pruebas finalizaron correctamente.")

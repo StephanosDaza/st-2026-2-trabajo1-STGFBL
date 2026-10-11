@@ -272,3 +272,96 @@ definir_asignacion_metodos <- function(catalogo) {
   }
   tabla
 }
+
+jarque_bera <- function(e, nivel = 0.05) {
+  e <- validar_y(e, minimo = 4L)
+  if (length(nivel) != 1L || !is.numeric(nivel) || !is.finite(nivel) ||
+      nivel <= 0 || nivel >= 1) {
+    stop("nivel debe estar en (0, 1).", call. = FALSE)
+  }
+  n <- length(e)
+  centrados <- e - mean(e)
+  m2 <- mean(centrados^2)
+  if (m2 <= 0) stop("Los residuos deben tener varianza positiva.", call. = FALSE)
+  asimetria <- mean(centrados^3) / m2^(3 / 2)
+  curtosis <- mean(centrados^4) / m2^2
+  estadistico <- n / 6 * (asimetria^2 + (curtosis - 3)^2 / 4)
+  valor_critico <- stats::qchisq(1 - nivel, df = 2)
+  valor_p <- stats::pchisq(estadistico, df = 2, lower.tail = FALSE)
+
+  list(
+    hipotesis_nula = "Los residuos tienen asimetria 0 y curtosis 3.",
+    hipotesis_alternativa = "Los residuos no cumplen conjuntamente esas condiciones.",
+    estadistico = estadistico,
+    grados_libertad = 2L,
+    valor_critico = valor_critico,
+    valor_p = valor_p,
+    decision = if (valor_p < nivel) "Rechazar H0" else "No rechazar H0",
+    asimetria = asimetria,
+    curtosis = curtosis
+  )
+}
+
+durbin_watson <- function(e) {
+  e <- validar_y(e)
+  denominador <- sum(e^2)
+  if (denominador <= 0) stop("Los residuos deben tener suma de cuadrados positiva.", call. = FALSE)
+  r1 <- acf_muestral(e, 1L)[1]
+  list(
+    estadistico = sum(diff(e)^2) / denominador,
+    r1 = r1,
+    aproximacion = 2 * (1 - r1)
+  )
+}
+
+residuos_regresion <- function(modelo) {
+  if (!is.list(modelo) || is.null(modelo$parametros)) {
+    stop("modelo debe ser una regresion del catalogo.", call. = FALSE)
+  }
+  p <- modelo$parametros
+  if (!is.null(p$residuos_escala)) {
+    list(residuos = p$residuos_escala,
+         escala = if (identical(p$tipo, "exponencial")) "logaritmica" else "original")
+  } else if (!is.null(p$residuos)) {
+    list(residuos = p$residuos, escala = "original")
+  } else {
+    stop("El modelo no contiene residuos de regresion.", call. = FALSE)
+  }
+}
+
+diagnosticar_regresion <- function(modelo, m = NULL, nivel = 0.05) {
+  extraidos <- residuos_regresion(modelo)
+  e <- extraidos$residuos
+  n <- length(e)
+  if (is.null(m)) m <- min(floor(n / 4), 24L)
+  if (length(m) != 1L || !is.numeric(m) || !is.finite(m) ||
+      m != round(m) || m < 1 || m >= n) {
+    stop("m debe ser un entero entre 1 y n - 1.", call. = FALSE)
+  }
+  m <- as.integer(m)
+  if (length(nivel) != 1L || !is.numeric(nivel) || !is.finite(nivel) ||
+      nivel <= 0 || nivel >= 1) {
+    stop("nivel debe estar en (0, 1).", call. = FALSE)
+  }
+
+  r <- acf_muestral(e, m)
+  lb <- ljung_box(r, T = n, m = m, p = 0L)
+  lb$hipotesis_nula <- paste0("rho_1 = ... = rho_", m, " = 0")
+  lb$hipotesis_alternativa <- paste0("Alguna autocorrelacion hasta el rezago ", m,
+                                      " es distinta de 0.")
+  lb$decision <- if (lb$valor_p < nivel) "Rechazar H0" else "No rechazar H0"
+  jb <- jarque_bera(e, nivel)
+  dw <- durbin_watson(e)
+
+  list(
+    residuos = e,
+    escala = extraidos$escala,
+    n = n,
+    m = m,
+    acf = r,
+    banda_ruido_blanco = banda_ruido_blanco(n),
+    ljung_box = lb,
+    jarque_bera = jb,
+    durbin_watson = dw
+  )
+}
