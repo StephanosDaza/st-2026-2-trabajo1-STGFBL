@@ -465,6 +465,110 @@ graficar_errores <- function(errores, titulo = NULL, unidad = NULL) {
     ggplot2::theme_minimal()
 }
 
+pronostico_final <- function(datos, H, ajustar, parametros = list(), errores_origen) {
+  if (!is.data.frame(datos) || !all(c("fecha", "y") %in% names(datos))) {
+    stop("datos debe ser el tibble generado por leer_serie().", call. = FALSE)
+  }
+  y <- validar_y(datos$y)
+  if (length(H) != 1L || !is.numeric(H) || !is.finite(H) ||
+      H != round(H) || H < 1L) {
+    stop("H debe ser un entero positivo.", call. = FALSE)
+  }
+  if (!is.function(ajustar)) stop("ajustar debe ser una funcion.", call. = FALSE)
+  if (!is.list(parametros) || (length(parametros) > 0L && is.null(names(parametros)))) {
+    stop("parametros debe ser una lista nombrada.", call. = FALSE)
+  }
+  if (!is.data.frame(errores_origen) ||
+      !all(c("horizonte", "error") %in% names(errores_origen))) {
+    stop("errores_origen debe provenir de origen_movil().", call. = FALSE)
+  }
+  H <- as.integer(H)
+  horizontes <- seq_len(H)
+  desviaciones <- vapply(horizontes, function(h) {
+    e <- errores_origen$error[errores_origen$horizonte == h]
+    if (length(e) < 2L) {
+      stop(paste("Se requieren al menos dos errores para h =", h), call. = FALSE)
+    }
+    stats::sd(e)
+  }, numeric(1))
+
+  modelo <- do.call(ajustar, c(list(y = y), parametros))
+  pronosticos <- as.numeric(modelo$pronosticar(H))
+  if (length(pronosticos) != H || any(!is.finite(pronosticos))) {
+    stop("El modelo final produjo pronosticos invalidos.", call. = FALSE)
+  }
+
+  frecuencia <- attr(datos, "frecuencia")
+  paso <- if (identical(frecuencia, 1)) "year" else
+    if (identical(frecuencia, 4)) "quarter" else
+      if (identical(frecuencia, 12)) "month" else
+        if (identical(frecuencia, 365)) "day" else
+          stop("La frecuencia de datos no permite construir fechas futuras.", call. = FALSE)
+  fechas <- seq(max(datos$fecha), by = paso, length.out = H + 1L)[-1L]
+
+  tabla <- tibble::tibble(
+    horizonte = horizontes,
+    fecha = fechas,
+    pronostico = pronosticos,
+    desviacion_error = desviaciones,
+    limite_inferior = pronosticos - 1.96 * desviaciones,
+    limite_superior = pronosticos + 1.96 * desviaciones
+  )
+  list(modelo = modelo, tabla = tabla, parametros = parametros)
+}
+
+graficar_pronostico_final <- function(datos, pronosticos, titulo = NULL,
+                                      ultimos = NULL) {
+  requeridas <- c("fecha", "pronostico", "limite_inferior", "limite_superior")
+  if (!is.data.frame(datos) || !all(c("fecha", "y") %in% names(datos)) ||
+      !is.data.frame(pronosticos) || !all(requeridas %in% names(pronosticos))) {
+    stop("datos o pronosticos no tienen la estructura esperada.", call. = FALSE)
+  }
+  H <- nrow(pronosticos)
+  if (is.null(ultimos)) ultimos <- max(2L * H, 24L)
+  ultimos <- min(as.integer(ultimos), nrow(datos))
+  historia <- datos[(nrow(datos) - ultimos + 1L):nrow(datos), c("fecha", "y")]
+  trayectoria <- rbind(
+    data.frame(fecha = tail(historia$fecha, 1L), valor = tail(historia$y, 1L)),
+    data.frame(fecha = pronosticos$fecha, valor = pronosticos$pronostico)
+  )
+  unidad <- attr(datos, "unidad")
+
+  ggplot2::ggplot() +
+    ggplot2::geom_ribbon(
+      data = pronosticos,
+      ggplot2::aes(x = fecha, ymin = limite_inferior, ymax = limite_superior),
+      fill = "#6baed6", alpha = 0.25
+    ) +
+    ggplot2::geom_line(
+      data = historia, ggplot2::aes(x = fecha, y = y),
+      color = "gray25", linewidth = 0.7
+    ) +
+    ggplot2::geom_line(
+      data = trayectoria, ggplot2::aes(x = fecha, y = valor),
+      color = "#1f5a94", linewidth = 0.9
+    ) +
+    ggplot2::geom_point(
+      data = pronosticos, ggplot2::aes(x = fecha, y = pronostico),
+      color = "#1f5a94", size = 1.7
+    ) +
+    ggplot2::geom_vline(
+      xintercept = as.numeric(max(datos$fecha)),
+      linetype = "dashed", color = "gray45"
+    ) +
+    ggplot2::labs(
+      title = if (is.null(titulo)) "Pronostico final" else titulo,
+      subtitle = paste0("Ganador reajustado sobre toda la serie; H = ", H),
+      x = "Fecha",
+      y = if (is.null(unidad)) "Valor" else paste0("Valor [", unidad, "]"),
+      caption = paste(
+        "Banda heuristica: pronostico +/- 1.96 DE de los errores",
+        "de origen movil en cada horizonte; no es un intervalo de confianza."
+      )
+    ) +
+    ggplot2::theme_minimal()
+}
+
 jarque_bera <- function(e, nivel = 0.05) {
   e <- validar_y(e, minimo = 4L)
   if (length(nivel) != 1L || !is.numeric(nivel) || !is.finite(nivel) ||

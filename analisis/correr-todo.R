@@ -552,6 +552,57 @@ print(as.data.frame(tabla_normalidad_ganadores), digits = 5)
 cat("\n>>> DURBIN-WATSON EN ERRORES DE LOS GANADORES\n")
 print(as.data.frame(tabla_dw_ganadores), digits = 5)
 
+
+# PUNTO 6(e): PRONOSTICO FINAL
+
+tabla_pronosticos_finales <- list()
+
+for (i in seq_len(nrow(ganadores_h1))) {
+  ganador <- ganadores_h1[i, ]
+  k <- ganador$serie
+  id <- ganador$metodo_id
+  cfg <- config[[k]]
+  datos <- resultados[[k]]$datos
+  catalogo <- crear_catalogo_metodos(cfg$s)
+  especificacion <- catalogo[[id]]
+  ajuste_inicial <- resultados[[k]]$pronostico$ajustes_estimacion[[id]]
+  parametros_fijos <- c(as.list(ajuste_inicial$parametros), especificacion$fijos)
+  errores <- resultados[[k]]$pronostico$origen_movil[[id]]
+
+  final <- pronostico_final(
+    datos = datos,
+    H = cfg$H,
+    ajustar = especificacion$ajustar,
+    parametros = parametros_fijos,
+    errores_origen = errores
+  )
+  resultados[[k]]$pronostico$final <- final
+  tabla_pronosticos_finales[[i]] <- bind_cols(
+    tibble(serie = k, metodo_id = id, metodo = ganador$metodo),
+    final$tabla
+  )
+
+  guardar(
+    graficar_pronostico_final(
+      datos,
+      final$tabla,
+      titulo = paste(resultados[[k]]$ficha$nombre, "-", ganador$metodo)
+    ),
+    paste0(k, "-pronostico-final"),
+    ancho = 9, alto = 5.5
+  )
+}
+
+tabla_pronosticos_finales <- bind_rows(tabla_pronosticos_finales)
+if (any(vapply(names(config), function(k) {
+  sum(tabla_pronosticos_finales$serie == k) != config[[k]]$H
+}, logical(1)))) {
+  stop("El pronostico final no contiene H filas para cada serie.")
+}
+
+cat("\n>>> PRONOSTICOS FINALES Y BANDAS HEURISTICAS\n")
+print(as.data.frame(tabla_pronosticos_finales), digits = 5)
+
 # BLOQUES DE VERIFICACION
 
 cat("\n\n====================================================================\n")

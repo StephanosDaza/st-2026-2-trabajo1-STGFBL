@@ -91,6 +91,16 @@ errores_om <- origen_movil(1:10, n0 = 5, H = 3, ajustar = ajustar_ingenuo)
 metricas_om <- medidas(errores_om, c(1, 3))
 errores_prueba <- c(-2, -1, 0, 1, 3)
 validacion_om <- validar_errores(errores_prueba, m = 1L)
+datos_prueba <- tibble::tibble(
+  fecha = seq(as.Date("2026-01-01"), by = "day", length.out = 10),
+  y = 1:10
+)
+attr(datos_prueba, "frecuencia") <- 365
+attr(datos_prueba, "unidad") <- "unidades"
+final_prueba <- pronostico_final(
+  datos_prueba, H = 3L, ajustar = ajustar_ingenuo,
+  errores_origen = errores_om
+)
 stopifnot(
   nrow(errores_om) == 12L,
   sum(errores_om$horizonte == 1L) == 5L,
@@ -109,7 +119,12 @@ stopifnot(
     validacion_om$media_cero$estadistico,
     mean(errores_prueba) / (sd(errores_prueba) / sqrt(5))
   )),
-  inherits(graficar_errores(errores_om[errores_om$horizonte == 1L, ]), "ggplot")
+  inherits(graficar_errores(errores_om[errores_om$horizonte == 1L, ]), "ggplot"),
+  identical(final_prueba$tabla$pronostico, rep(10, 3)),
+  identical(final_prueba$tabla$fecha,
+            as.Date(c("2026-01-11", "2026-01-12", "2026-01-13"))),
+  all(is.finite(final_prueba$tabla$limite_inferior)),
+  inherits(graficar_pronostico_final(datos_prueba, final_prueba$tabla), "ggplot")
 )
 
 message("Optimizacion y asignacion: todas las pruebas finalizaron correctamente.")

@@ -763,6 +763,72 @@ tabla_dw_ganadores |>
 
 SES y Holt presentan valores muy cercanos a 2, coherentes con sus correlogramas y con Ljung-Box. En la serie 1, $DW=`r f(vg(tabla_dw_ganadores, "serie1", "DW"), 3)`$ sugiere una dependencia negativa leve de primer orden, pero no suficiente para producir rechazo conjunto. En suma, los tres ganadores superan la validación exigida en $h=1$; la señal semestral aislada de la serie 1 debe conservarse como limitación del modelo.
 
+## 6(e) Pronóstico final
+
+Cada ganador se reajusta una sola vez con todas las observaciones de su serie, conservando los hiperparámetros elegidos exclusivamente en el tramo inicial. Desde el origen final $T$ se generan los $H$ pronósticos requeridos. Para cada horizonte $h$, la dispersión se estima con la desviación $s_h$ de los errores de origen móvil del ganador en ese mismo horizonte y se representa mediante
+$$\hat y_{T+h\mid T}\pm1.96s_h.$$
+Esta banda es **heurística**: resume la variabilidad empírica observada en la evaluación y cambia con el horizonte, pero no es un intervalo de confianza ni un intervalo probabilístico formal. En particular, no incorpora explícitamente incertidumbre de parámetros ni garantiza una cobertura del 95 %.
+
+### Serie 1: demanda mensual de energía
+
+![](../figs/serie1-pronostico-final.png){width=82%}
+
+```{r}
+#| label: pronostico-final-serie1
+#| echo: true
+tabla_pronosticos_finales |>
+  filter(serie == "serie1") |>
+  select(horizonte, fecha, pronostico, desviacion_error,
+         limite_inferior, limite_superior) |>
+  knitr::kable(
+    col.names = c("h", "Fecha", "Pronóstico", "DE errores", "Límite inferior",
+                  "Límite superior"),
+    digits = 2
+  )
+```
+
+La tendencia con ficticias conserva el perfil mensual: el máximo pronosticado es `r f(max(tabla_pronosticos_finales$pronostico[tabla_pronosticos_finales$serie == "serie1"]), 1)` GWh y el mínimo `r f(min(tabla_pronosticos_finales$pronostico[tabla_pronosticos_finales$serie == "serie1"]), 1)` GWh. La banda utiliza una desviación distinta para cada mes de 2026, estimada con los errores históricos del horizonte correspondiente.
+
+### Serie 2: consumo diario de la estación de bombeo
+
+![](../figs/serie2-pronostico-final.png){width=82%}
+
+```{r}
+#| label: pronostico-final-serie2
+#| echo: true
+tabla_pronosticos_finales |>
+  filter(serie == "serie2") |>
+  select(horizonte, fecha, pronostico, desviacion_error,
+         limite_inferior, limite_superior) |>
+  knitr::kable(
+    col.names = c("h", "Fecha", "Pronóstico", "DE errores", "Límite inferior",
+                  "Límite superior"),
+    digits = 2
+  )
+```
+
+SES produce un nivel constante de `r f(tabla_pronosticos_finales$pronostico[tabla_pronosticos_finales$serie == "serie2"][1], 2)` MWh para los siete días. Aunque el pronóstico puntual no cambia, la banda se ensancha con el horizonte porque la dispersión empírica de los errores aumenta de `r f(tabla_pronosticos_finales$desviacion_error[tabla_pronosticos_finales$serie == "serie2"][1], 2)` a `r f(tail(tabla_pronosticos_finales$desviacion_error[tabla_pronosticos_finales$serie == "serie2"], 1), 2)` MWh.
+
+### Serie 3: usuarios conectados
+
+![](../figs/serie3-pronostico-final.png){width=82%}
+
+```{r}
+#| label: pronostico-final-serie3
+#| echo: true
+tabla_pronosticos_finales |>
+  filter(serie == "serie3") |>
+  select(horizonte, fecha, pronostico, desviacion_error,
+         limite_inferior, limite_superior) |>
+  knitr::kable(
+    col.names = c("h", "Fecha", "Pronóstico", "DE errores", "Límite inferior",
+                  "Límite superior"),
+    digits = 2
+  )
+```
+
+Holt prolonga el crecimiento reciente desde `r f(tabla_pronosticos_finales$pronostico[tabla_pronosticos_finales$serie == "serie3"][1], 1)` hasta `r f(tail(tabla_pronosticos_finales$pronostico[tabla_pronosticos_finales$serie == "serie3"], 1), 1)` mil usuarios. La banda debe leerse únicamente como rango heurístico de error histórico; la decisión empresarial sobre el umbral de capacidad se desarrollará fuera del alcance actual del punto 6.
+
 # Bloques de verificación
 
 ```{r}
