@@ -227,7 +227,7 @@ definir_asignacion_metodos <- function(catalogo) {
   )
   contrastes <- list(
     serie1 = "hw_multiplicativo",
-    serie2 = "ingenuo_estacional",
+    serie2 = character(0),
     serie3 = "tendencia_estacional"
   )
   referentes <- c(
@@ -271,10 +271,11 @@ definir_asignacion_metodos <- function(catalogo) {
   }, logical(1)))) {
     stop("Cada metodo debe asignarse al menos a una serie.", call. = FALSE)
   }
-  if (any(!vapply(names(aplicados), function(serie) {
+  series_con_contraste <- names(contrastes)[lengths(contrastes) > 0L]
+  if (any(!vapply(series_con_contraste, function(serie) {
     any(tabla$serie == serie & tabla$rol == "Contraste")
   }, logical(1)))) {
-    stop("Cada serie debe incluir al menos un metodo de contraste.", call. = FALSE)
+    stop("Cada contraste definido debe quedar incluido en su serie.", call. = FALSE)
   }
   if (any(!vapply(names(aplicados), function(serie) {
     sum(tabla$serie == serie & tabla$rol == "Referente") == 1L

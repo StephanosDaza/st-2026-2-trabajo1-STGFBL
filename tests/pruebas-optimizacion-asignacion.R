@@ -35,7 +35,7 @@ asignacion <- definir_asignacion_metodos(catalogo)
 stopifnot(
   length(catalogo) == 13L,
   nrow(asignacion) == 39L,
-  sum(asignacion$decision) == 16L,
+  sum(asignacion$decision) == 15L,
   identical(
     asignacion$metodo_id[asignacion$serie == "serie1" & asignacion$decision],
     c("ingenuo_estacional", "tendencia_estacional", "hw_aditivo",
@@ -44,9 +44,11 @@ stopifnot(
   all(vapply(names(catalogo), function(id) {
     any(asignacion$metodo_id == id & asignacion$decision)
   }, logical(1))),
-  all(vapply(unique(asignacion$serie), function(serie) {
+  all(vapply(c("serie1", "serie3"), function(serie) {
     any(asignacion$serie == serie & asignacion$rol == "Contraste")
   }, logical(1))),
+  asignacion$rol[asignacion$serie == "serie2" &
+                   asignacion$metodo_id == "ingenuo_estacional"] == "No aplicado",
   all(vapply(unique(asignacion$serie), function(serie) {
     sum(asignacion$serie == serie & asignacion$rol == "Referente") == 1L
   }, logical(1)))

@@ -4507,7 +4507,7 @@ window.Quarto = {
 <section id="a-métodos-asignación-y-optimización" class="level2">
 <h2 class="anchored" data-anchor-id="a-métodos-asignación-y-optimización">6(a) Métodos, asignación y optimización</h2>
 <p>Los parámetros se eligieron exclusivamente sobre las primeras <span class="math inline">\(n_0=\lfloor0.8T\rfloor\)</span> observaciones de cada serie. Las rejillas son las exigidas por la guía: <span class="math inline">\(k=2,\ldots,12\)</span> para media móvil; <span class="math inline">\(\alpha=0.02,\ldots,0.98\)</span> para SES; <span class="math inline">\(k=3,\ldots,12\)</span> para doble media móvil; paso 0.05 para <span class="math inline">\((\alpha,\beta)\)</span> de Holt; y paso 0.1 para <span class="math inline">\((\alpha,\beta,\gamma)\)</span> de Holt-Winters. El criterio es el MSE de los pronósticos de un paso disponibles después del calentamiento de cada método. Este MSE elige parámetros <strong>dentro de cada método</strong>; todavía no se usa para ordenar métodos, tarea reservada al origen móvil sobre orígenes comunes.</p>
-<p>La selección se hace primero por compatibilidad estructural: a la serie 1, que es estacional, se le asignan métodos capaces de representar estacionalidad; a las series 2 y 3, sin estacionalidad material, se les asignan métodos no estacionales acordes con su nivel o tendencia. “Contraste” identifica el único candidato cuya forma estacional contradice deliberadamente el diagnóstico. Este filtro reduce la evaluación de 21 a 16 combinaciones método-serie.</p>
+<p>La selección se hace primero por compatibilidad estructural: a la serie 1, que es estacional, se le asignan métodos capaces de representar estacionalidad; a las series 2 y 3, sin estacionalidad material, se les asignan métodos no estacionales acordes con su nivel o tendencia. “Contraste” identifica un candidato cuya forma contradice deliberadamente el diagnóstico cuando resulta informativo. Este filtro reduce la evaluación de 21 a 15 combinaciones método-serie.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Ver código</summary>
@@ -4550,7 +4550,7 @@ window.Quarto = {
 <tr class="odd">
 <td style="text-align: left;">Ingenuo estacional</td>
 <td style="text-align: left;">Referente</td>
-<td style="text-align: left;">Contraste</td>
+<td style="text-align: left;">No aplicado</td>
 <td style="text-align: left;">No aplicado</td>
 </tr>
 <tr class="even">
@@ -4654,7 +4654,7 @@ window.Quarto = {
 </table>
 </div>
 </div>
-<p>Con esta distribución, los trece métodos se aplican al menos una vez y cada serie incluye un contraste. Los parámetros seleccionados en el tramo de estimación son:</p>
+<p>Con esta distribución, los trece métodos se aplican al menos una vez. Las series 1 y 3 conservan un contraste estructural; en la serie 2 se omite el ingenuo estacional porque no existe evidencia de estacionalidad semanal. Los parámetros seleccionados en el tramo de estimación son:</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Ver código</summary>
@@ -5562,15 +5562,6 @@ MAD_h=\frac{1}{N_h}\sum_o|e_{o,h}|,\]</span> <span class="math display">\[MAPE_h
 <td style="text-align: right;">8.711</td>
 <td style="text-align: right;">-21.810</td>
 </tr>
-<tr class="odd">
-<td style="text-align: left;">Ingenuo estacional</td>
-<td style="text-align: left;">Contraste</td>
-<td style="text-align: right;">40</td>
-<td style="text-align: right;">6.896</td>
-<td style="text-align: right;">5.575</td>
-<td style="text-align: right;">11.573</td>
-<td style="text-align: right;">-56.310</td>
-</tr>
 </tbody>
 </table>
 </section>
@@ -5628,15 +5619,6 @@ MAD_h=\frac{1}{N_h}\sum_o|e_{o,h}|,\]</span> <span class="math display">\[MAPE_h
 <tr class="even">
 <td style="text-align: left;">Ingenuo</td>
 <td style="text-align: left;">Referente</td>
-<td style="text-align: right;">34</td>
-<td style="text-align: right;">7.319</td>
-<td style="text-align: right;">6.047</td>
-<td style="text-align: right;">12.554</td>
-<td style="text-align: right;">0.000</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Ingenuo estacional</td>
-<td style="text-align: left;">Contraste</td>
 <td style="text-align: right;">34</td>
 <td style="text-align: right;">7.319</td>
 <td style="text-align: right;">6.047</td>
@@ -5828,7 +5810,7 @@ MAD_h=\frac{1}{N_h}\sum_o|e_{o,h}|,\]</span> <span class="math display">\[MAPE_h
 <p>Las tablas usan 29, 40 y 30 errores a un paso para las series 1, 2 y 3. En el horizonte máximo quedan, respectivamente, 18, 34 y 10, porque los últimos orígenes ya no disponen de una realización futura a distancia <span class="math inline">\(H\)</span>. Que un método no supere al referente en esta etapa no lo elimina automáticamente; la selección y validación del ganador corresponden a la iteración siguiente.</p>
 <ul>
 <li><strong>Serie 1.</strong> La tendencia con ficticias obtiene el menor RMSE a un paso (12.319) y Holt-Winters aditivo en <span class="math inline">\(h=12\)</span> (10.089). Ambos superan ampliamente al ingenuo estacional, lo que muestra el valor de representar conjuntamente tendencia y estacionalidad.</li>
-<li><strong>Serie 2.</strong> SES encabeza <span class="math inline">\(h=1\)</span> con RMSE 4.245, mientras la media simple encabeza <span class="math inline">\(h=7\)</span> con 5.766. El ingenuo estacional coincide con el ingenuo ordinario en <span class="math inline">\(h=7\)</span>: a esa distancia ambos reutilizan exactamente la observación de siete días atrás.</li>
+<li><strong>Serie 2.</strong> SES encabeza <span class="math inline">\(h=1\)</span> con RMSE 4.245, mientras la media simple encabeza <span class="math inline">\(h=7\)</span> con 5.766. La comparación queda restringida a métodos no estacionales, coherentes con el patrón observado.</li>
 <li><strong>Serie 3.</strong> Holt presenta el menor RMSE a un paso (6.943) y la tendencia cuadrática en <span class="math inline">\(h=21\)</span> (7.533). La ventaja de las tendencias en el horizonte largo es marcada frente al ingenuo, aunque la decisión definitiva todavía debe pasar por la validación reservada para 6(d).</li>
 </ul>
 </section>

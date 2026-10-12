@@ -444,7 +444,7 @@ for (k in names(resultados)) {
 
 Los parámetros se eligieron exclusivamente sobre las primeras $n_0=\lfloor0.8T\rfloor$ observaciones de cada serie. Las rejillas son las exigidas por la guía: $k=2,\ldots,12$ para media móvil; $\alpha=0.02,\ldots,0.98$ para SES; $k=3,\ldots,12$ para doble media móvil; paso 0.05 para $(\alpha,\beta)$ de Holt; y paso 0.1 para $(\alpha,\beta,\gamma)$ de Holt-Winters. El criterio es el MSE de los pronósticos de un paso disponibles después del calentamiento de cada método. Este MSE elige parámetros **dentro de cada método**; todavía no se usa para ordenar métodos, tarea reservada al origen móvil sobre orígenes comunes.
 
-La selección se hace primero por compatibilidad estructural: a la serie 1, que es estacional, se le asignan métodos capaces de representar estacionalidad; a las series 2 y 3, sin estacionalidad material, se les asignan métodos no estacionales acordes con su nivel o tendencia. “Contraste” identifica el único candidato cuya forma estacional contradice deliberadamente el diagnóstico. Este filtro reduce la evaluación de 21 a 16 combinaciones método-serie.
+La selección se hace primero por compatibilidad estructural: a la serie 1, que es estacional, se le asignan métodos capaces de representar estacionalidad; a las series 2 y 3, sin estacionalidad material, se les asignan métodos no estacionales acordes con su nivel o tendencia. “Contraste” identifica un candidato cuya forma contradice deliberadamente el diagnóstico cuando resulta informativo. Este filtro reduce la evaluación de 21 a 15 combinaciones método-serie.
 
 ```{r}
 #| label: asignacion-metodos
@@ -467,7 +467,7 @@ tabla_asignacion |>
   knitr::kable(col.names = c("Serie", "Evidencia"))
 ```
 
-Con esta distribución, los trece métodos se aplican al menos una vez y cada serie incluye un contraste. Los parámetros seleccionados en el tramo de estimación son:
+Con esta distribución, los trece métodos se aplican al menos una vez. Las series 1 y 3 conservan un contraste estructural; en la serie 2 se omite el ingenuo estacional porque no existe evidencia de estacionalidad semanal. Los parámetros seleccionados en el tramo de estimación son:
 
 ```{r}
 #| label: optimos-estimacion
@@ -631,7 +631,7 @@ for (k in names(config)) {
 Las tablas usan `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie1" & tabla_origen_movil$horizonte == 1][1]`, `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie2" & tabla_origen_movil$horizonte == 1][1]` y `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie3" & tabla_origen_movil$horizonte == 1][1]` errores a un paso para las series 1, 2 y 3. En el horizonte máximo quedan, respectivamente, `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie1" & tabla_origen_movil$horizonte == config$serie1$H][1]`, `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie2" & tabla_origen_movil$horizonte == config$serie2$H][1]` y `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie3" & tabla_origen_movil$horizonte == config$serie3$H][1]`, porque los últimos orígenes ya no disponen de una realización futura a distancia $H$. Que un método no supere al referente en esta etapa no lo elimina automáticamente; la selección y validación del ganador corresponden a la iteración siguiente.
 
 - **Serie 1.** La tendencia con ficticias obtiene el menor RMSE a un paso (`r f(mejor_om("serie1", 1)$RMSE, 3)`) y Holt-Winters aditivo en $h=12$ (`r f(mejor_om("serie1", config$serie1$H)$RMSE, 3)`). Ambos superan ampliamente al ingenuo estacional, lo que muestra el valor de representar conjuntamente tendencia y estacionalidad.
-- **Serie 2.** SES encabeza $h=1$ con RMSE `r f(mejor_om("serie2", 1)$RMSE, 3)`, mientras la media simple encabeza $h=7$ con `r f(mejor_om("serie2", config$serie2$H)$RMSE, 3)`. El ingenuo estacional coincide con el ingenuo ordinario en $h=7$: a esa distancia ambos reutilizan exactamente la observación de siete días atrás.
+- **Serie 2.** SES encabeza $h=1$ con RMSE `r f(mejor_om("serie2", 1)$RMSE, 3)`, mientras la media simple encabeza $h=7$ con `r f(mejor_om("serie2", config$serie2$H)$RMSE, 3)`. La comparación queda restringida a métodos no estacionales, coherentes con el patrón observado.
 - **Serie 3.** Holt presenta el menor RMSE a un paso (`r f(mejor_om("serie3", 1)$RMSE, 3)`) y la tendencia cuadrática en $h=21$ (`r f(mejor_om("serie3", config$serie3$H)$RMSE, 3)`). La ventaja de las tendencias en el horizonte largo es marcada frente al ingenuo, aunque la decisión definitiva todavía debe pasar por la validación reservada para 6(d).
 
 # Bloques de verificación
