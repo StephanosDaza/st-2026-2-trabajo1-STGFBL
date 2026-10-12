@@ -445,7 +445,7 @@ for (k in names(resultados)) {
 
 Los parámetros se eligieron exclusivamente sobre las primeras $n_0=\lfloor0.8T\rfloor$ observaciones de cada serie. Las rejillas son las exigidas por la guía: $k=2,\ldots,12$ para media móvil; $\alpha=0.02,\ldots,0.98$ para SES; $k=3,\ldots,12$ para doble media móvil; paso 0.05 para $(\alpha,\beta)$ de Holt; y paso 0.1 para $(\alpha,\beta,\gamma)$ de Holt-Winters. El criterio es el MSE de los pronósticos de un paso disponibles después del calentamiento de cada método. Este MSE elige parámetros **dentro de cada método**; todavía no se usa para ordenar métodos, tarea reservada al origen móvil sobre orígenes comunes.
 
-La selección se hace primero por compatibilidad estructural: a la serie 1, que es estacional, se le asignan métodos capaces de representar estacionalidad; a las series 2 y 3, sin estacionalidad material, se les asignan métodos no estacionales acordes con su nivel o tendencia. “Contraste” identifica un candidato cuya forma contradice deliberadamente el diagnóstico cuando resulta informativo. Este filtro reduce la evaluación de 21 a 15 combinaciones método-serie.
+La selección se hace primero por compatibilidad estructural: a la serie 1, que es estacional, se le asignan métodos capaces de representar estacionalidad; a las series 2 y 3, sin estacionalidad material, se les asignan métodos no estacionales acordes con su nivel o tendencia. “Contraste” identifica un candidato cuya forma contradice deliberadamente el diagnóstico cuando resulta informativo. El catálogo de 13 métodos aplicado a 3 series produce 39 combinaciones posibles; este filtro conserva 15 combinaciones método-serie para la evaluación.
 
 ```{r}
 #| label: asignacion-metodos
