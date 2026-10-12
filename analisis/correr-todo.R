@@ -398,6 +398,61 @@ print(as.data.frame(tabla_dependencia_regresion), digits = 5)
 cat("\n>>> NORMALIDAD EN RESIDUOS DE REGRESION\n")
 print(as.data.frame(tabla_normalidad_regresion), digits = 5)
 
+
+# PUNTO 6(c): EVALUACION POR ORIGEN MOVIL
+
+tabla_origen_movil <- list()
+
+for (k in names(config)) {
+  cfg <- config[[k]]
+  datos <- resultados[[k]]$datos
+  n0 <- resultados[[k]]$particion$n0
+  catalogo <- crear_catalogo_metodos(cfg$s)
+  decisiones <- resultados[[k]]$pronostico$asignacion
+  evaluaciones <- list()
+
+  for (id in decisiones$metodo_id) {
+    especificacion <- catalogo[[id]]
+    ajuste_inicial <- resultados[[k]]$pronostico$ajustes_estimacion[[id]]
+    parametros_fijos <- c(as.list(ajuste_inicial$parametros), especificacion$fijos)
+    errores <- origen_movil(
+      y = datos$y,
+      n0 = n0,
+      H = cfg$H,
+      ajustar = especificacion$ajustar,
+      parametros = parametros_fijos,
+      fechas = datos$fecha
+    )
+    evaluaciones[[id]] <- errores
+    rol <- decisiones$rol[decisiones$metodo_id == id][1]
+    tabla_origen_movil[[length(tabla_origen_movil) + 1L]] <-
+      bind_cols(
+        tibble(serie = k, metodo_id = id, metodo = especificacion$nombre, rol = rol),
+        medidas(errores, c(1L, cfg$H))
+      )
+  }
+  resultados[[k]]$pronostico$origen_movil <- evaluaciones
+}
+
+tabla_origen_movil <- bind_rows(tabla_origen_movil)
+referencias_rmse <- tabla_origen_movil |>
+  filter(rol == "Referente") |>
+  select(serie, horizonte, rmse_referente = RMSE)
+tabla_origen_movil <- tabla_origen_movil |>
+  left_join(referencias_rmse, by = c("serie", "horizonte")) |>
+  mutate(mejora_rmse_pct = 100 * (rmse_referente - RMSE) / rmse_referente) |>
+  arrange(serie, horizonte, RMSE)
+
+conteos_origen <- tabla_origen_movil |>
+  group_by(serie, horizonte) |>
+  summarise(minimo = min(n_errores), maximo = max(n_errores), .groups = "drop")
+if (any(conteos_origen$minimo != conteos_origen$maximo)) {
+  stop("Los metodos no fueron evaluados sobre el mismo numero de origenes.")
+}
+
+cat("\n>>> EVALUACION POR ORIGEN MOVIL\n")
+print(as.data.frame(tabla_origen_movil), digits = 5)
+
 # BLOQUES DE VERIFICACION
 
 cat("\n\n====================================================================\n")

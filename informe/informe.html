@@ -3283,6 +3283,15 @@ window.Quarto = {
   <li><a href="#dependencia-residual" id="toc-dependencia-residual" class="nav-link" data-scroll-target="#dependencia-residual">Dependencia residual</a></li>
   <li><a href="#normalidad-residual" id="toc-normalidad-residual" class="nav-link" data-scroll-target="#normalidad-residual">Normalidad residual</a></li>
   </ul></li>
+  <li><a href="#c-evaluación-por-origen-móvil" id="toc-c-evaluación-por-origen-móvil" class="nav-link" data-scroll-target="#c-evaluación-por-origen-móvil">6(c) Evaluación por origen móvil</a>
+  <ul class="collapse">
+  <li><a href="#demanda-mensual-de-energia-de-un-distribuidor-horizonte-h1" id="toc-demanda-mensual-de-energia-de-un-distribuidor-horizonte-h1" class="nav-link" data-scroll-target="#demanda-mensual-de-energia-de-un-distribuidor-horizonte-h1">Demanda mensual de energia de un distribuidor: horizonte <span class="math inline">\(h=1\)</span></a></li>
+  <li><a href="#demanda-mensual-de-energia-de-un-distribuidor-horizonte-h12" id="toc-demanda-mensual-de-energia-de-un-distribuidor-horizonte-h12" class="nav-link" data-scroll-target="#demanda-mensual-de-energia-de-un-distribuidor-horizonte-h12">Demanda mensual de energia de un distribuidor: horizonte <span class="math inline">\(h=12\)</span></a></li>
+  <li><a href="#consumo-diario-de-energia-de-una-estacion-de-bombeo-horizonte-h1" id="toc-consumo-diario-de-energia-de-una-estacion-de-bombeo-horizonte-h1" class="nav-link" data-scroll-target="#consumo-diario-de-energia-de-una-estacion-de-bombeo-horizonte-h1">Consumo diario de energia de una estacion de bombeo: horizonte <span class="math inline">\(h=1\)</span></a></li>
+  <li><a href="#consumo-diario-de-energia-de-una-estacion-de-bombeo-horizonte-h7" id="toc-consumo-diario-de-energia-de-una-estacion-de-bombeo-horizonte-h7" class="nav-link" data-scroll-target="#consumo-diario-de-energia-de-una-estacion-de-bombeo-horizonte-h7">Consumo diario de energia de una estacion de bombeo: horizonte <span class="math inline">\(h=7\)</span></a></li>
+  <li><a href="#usuarios-conectados-a-la-red-de-un-operador-regional-horizonte-h1" id="toc-usuarios-conectados-a-la-red-de-un-operador-regional-horizonte-h1" class="nav-link" data-scroll-target="#usuarios-conectados-a-la-red-de-un-operador-regional-horizonte-h1">Usuarios conectados a la red de un operador regional: horizonte <span class="math inline">\(h=1\)</span></a></li>
+  <li><a href="#usuarios-conectados-a-la-red-de-un-operador-regional-horizonte-h21" id="toc-usuarios-conectados-a-la-red-de-un-operador-regional-horizonte-h21" class="nav-link" data-scroll-target="#usuarios-conectados-a-la-red-de-un-operador-regional-horizonte-h21">Usuarios conectados a la red de un operador regional: horizonte <span class="math inline">\(h=21\)</span></a></li>
+  </ul></li>
   </ul></li>
   <li><a href="#bloques-de-verificación" id="toc-bloques-de-verificación" class="nav-link" data-scroll-target="#bloques-de-verificación">Bloques de verificación</a></li>
   </ul>
@@ -4535,12 +4544,12 @@ window.Quarto = {
 <tr class="even">
 <td style="text-align: left;">Ingenuo</td>
 <td style="text-align: left;">No aplicado</td>
-<td style="text-align: left;">Aplicado</td>
-<td style="text-align: left;">Aplicado</td>
+<td style="text-align: left;">Referente</td>
+<td style="text-align: left;">Referente</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Ingenuo estacional</td>
-<td style="text-align: left;">Aplicado</td>
+<td style="text-align: left;">Referente</td>
 <td style="text-align: left;">Contraste</td>
 <td style="text-align: left;">No aplicado</td>
 </tr>
@@ -5340,6 +5349,488 @@ window.Quarto = {
 </div>
 </div>
 <p>Jarque-Bera no rechaza normalidad en ninguna regresión al 5 %. Esta conclusión no rescata las regresiones de la serie 3 como modelos completos: sus residuos siguen autocorrelacionados según Ljung-Box y Durbin-Watson.</p>
+</section>
+</section>
+<section id="c-evaluación-por-origen-móvil" class="level2">
+<h2 class="anchored" data-anchor-id="c-evaluación-por-origen-móvil">6(c) Evaluación por origen móvil</h2>
+<p>La evaluación simula el uso real del pronóstico mediante una ventana expansiva. El primer origen es <span class="math inline">\(n_0\)</span>: se ajusta el modelo con <span class="math inline">\(y_1,\ldots,y_{n_0}\)</span> y se pronostican hasta <span class="math inline">\(H\)</span> períodos. Luego el origen avanza una observación, se incorpora el dato recién disponible, se vuelve a ajustar el modelo con <span class="math inline">\(y_1,\ldots,y_{n_0+1}\)</span> y se repite el proceso. Por tanto, el modelo sí se reestima en cada origen; lo que permanece fijo son los hiperparámetros elegidos exclusivamente en el tramo inicial de estimación, como <span class="math inline">\(k\)</span>, <span class="math inline">\(\alpha\)</span>, <span class="math inline">\(\beta\)</span> y <span class="math inline">\(\gamma\)</span>.</p>
+<p>Para cada método se calculan errores <span class="math inline">\(e_{o,h}=y_{o+h}-\hat y_{o+h\mid o}\)</span> sobre los mismos orígenes. En cada horizonte se resumen mediante <span class="math display">\[RMSE_h=\sqrt{\frac{1}{N_h}\sum_o e_{o,h}^2},\qquad
+MAD_h=\frac{1}{N_h}\sum_o|e_{o,h}|,\]</span> <span class="math display">\[MAPE_h=\frac{100}{N_h}\sum_o\left|\frac{e_{o,h}}{y_{o+h}}\right|.\]</span> El RMSE determina el orden de las tablas; MAD y MAPE complementan la lectura con error absoluto y porcentual. La columna <em>Mejora RMSE (%)</em> es positiva cuando el método supera al referente y negativa cuando queda por debajo.</p>
+<p>Se elige como referente el ingenuo estacional para la serie 1, porque su patrón mensual exige comparar contra el valor del mismo mes anterior. Para las series 2 y 3 se usa el ingenuo ordinario, coherente con la ausencia de estacionalidad material. El referente se calcula sobre exactamente los mismos orígenes que los demás métodos.</p>
+<details class="code-fold">
+<summary>Ver código</summary>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (k <span class="cf">in</span> <span class="fu">names</span>(config)) {</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (h <span class="cf">in</span> <span class="fu">c</span>(<span class="dv">1</span>L, config[[k]]<span class="sc">$</span>H)) {</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    tb <span class="ot">&lt;-</span> tabla_origen_movil <span class="sc">|&gt;</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>      <span class="fu">filter</span>(serie <span class="sc">==</span> k, horizonte <span class="sc">==</span> h) <span class="sc">|&gt;</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(metodo, rol, n_errores, RMSE, MAD, MAPE, mejora_rmse_pct) <span class="sc">|&gt;</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>      <span class="fu">arrange</span>(RMSE)</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">### &quot;</span>, resultados[[k]]<span class="sc">$</span>ficha<span class="sc">$</span>nombre, <span class="st">&quot;: horizonte $h=&quot;</span>, h, <span class="st">&quot;$</span><span class="sc">\n\n</span><span class="st">&quot;</span>, <span class="at">sep =</span> <span class="st">&quot;&quot;</span>)</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">print</span>(knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>      tb,</span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>      <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Método&quot;</span>, <span class="st">&quot;Rol&quot;</span>, <span class="st">&quot;Errores&quot;</span>, <span class="st">&quot;RMSE&quot;</span>, <span class="st">&quot;MAD&quot;</span>, <span class="st">&quot;MAPE (%)&quot;</span>,</span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;Mejora RMSE (%)&quot;</span>),</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>      <span class="at">digits =</span> <span class="dv">3</span></span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>    ))</span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<section id="demanda-mensual-de-energia-de-un-distribuidor-horizonte-h1" class="level3">
+<h3 class="anchored" data-anchor-id="demanda-mensual-de-energia-de-un-distribuidor-horizonte-h1">Demanda mensual de energia de un distribuidor: horizonte <span class="math inline">\(h=1\)</span></h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 39%">
+<col style="width: 10%">
+<col style="width: 8%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 9%">
+<col style="width: 17%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">M&lt;U+00E9&gt;todo</th>
+<th style="text-align: left;">Rol</th>
+<th style="text-align: right;">Errores</th>
+<th style="text-align: right;">RMSE</th>
+<th style="text-align: right;">MAD</th>
+<th style="text-align: right;">MAPE (%)</th>
+<th style="text-align: right;">Mejora RMSE (%)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Tendencia con ficticias de suma cero</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">29</td>
+<td style="text-align: right;">12.319</td>
+<td style="text-align: right;">10.248</td>
+<td style="text-align: right;">1.352</td>
+<td style="text-align: right;">60.146</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Holt-Winters aditivo</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">29</td>
+<td style="text-align: right;">12.894</td>
+<td style="text-align: right;">10.028</td>
+<td style="text-align: right;">1.320</td>
+<td style="text-align: right;">58.288</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Holt-Winters multiplicativo</td>
+<td style="text-align: left;">Contraste</td>
+<td style="text-align: right;">29</td>
+<td style="text-align: right;">14.520</td>
+<td style="text-align: right;">11.694</td>
+<td style="text-align: right;">1.542</td>
+<td style="text-align: right;">53.028</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Ingenuo estacional</td>
+<td style="text-align: left;">Referente</td>
+<td style="text-align: right;">29</td>
+<td style="text-align: right;">30.911</td>
+<td style="text-align: right;">26.159</td>
+<td style="text-align: right;">3.442</td>
+<td style="text-align: right;">0.000</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="demanda-mensual-de-energia-de-un-distribuidor-horizonte-h12" class="level3">
+<h3 class="anchored" data-anchor-id="demanda-mensual-de-energia-de-un-distribuidor-horizonte-h12">Demanda mensual de energia de un distribuidor: horizonte <span class="math inline">\(h=12\)</span></h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 39%">
+<col style="width: 10%">
+<col style="width: 8%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 9%">
+<col style="width: 17%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">M&lt;U+00E9&gt;todo</th>
+<th style="text-align: left;">Rol</th>
+<th style="text-align: right;">Errores</th>
+<th style="text-align: right;">RMSE</th>
+<th style="text-align: right;">MAD</th>
+<th style="text-align: right;">MAPE (%)</th>
+<th style="text-align: right;">Mejora RMSE (%)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Holt-Winters aditivo</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">18</td>
+<td style="text-align: right;">10.089</td>
+<td style="text-align: right;">7.698</td>
+<td style="text-align: right;">1.013</td>
+<td style="text-align: right;">63.360</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Tendencia con ficticias de suma cero</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">18</td>
+<td style="text-align: right;">10.666</td>
+<td style="text-align: right;">9.060</td>
+<td style="text-align: right;">1.185</td>
+<td style="text-align: right;">61.264</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Holt-Winters multiplicativo</td>
+<td style="text-align: left;">Contraste</td>
+<td style="text-align: right;">18</td>
+<td style="text-align: right;">12.604</td>
+<td style="text-align: right;">10.621</td>
+<td style="text-align: right;">1.390</td>
+<td style="text-align: right;">54.226</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Ingenuo estacional</td>
+<td style="text-align: left;">Referente</td>
+<td style="text-align: right;">18</td>
+<td style="text-align: right;">27.536</td>
+<td style="text-align: right;">24.628</td>
+<td style="text-align: right;">3.226</td>
+<td style="text-align: right;">0.000</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="consumo-diario-de-energia-de-una-estacion-de-bombeo-horizonte-h1" class="level3">
+<h3 class="anchored" data-anchor-id="consumo-diario-de-energia-de-una-estacion-de-bombeo-horizonte-h1">Consumo diario de energia de una estacion de bombeo: horizonte <span class="math inline">\(h=1\)</span></h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 37%">
+<col style="width: 11%">
+<col style="width: 9%">
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 10%">
+<col style="width: 18%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">M&lt;U+00E9&gt;todo</th>
+<th style="text-align: left;">Rol</th>
+<th style="text-align: right;">Errores</th>
+<th style="text-align: right;">RMSE</th>
+<th style="text-align: right;">MAD</th>
+<th style="text-align: right;">MAPE (%)</th>
+<th style="text-align: right;">Mejora RMSE (%)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Suavizamiento exponencial simple</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">4.245</td>
+<td style="text-align: right;">3.574</td>
+<td style="text-align: right;">7.502</td>
+<td style="text-align: right;">3.771</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Ingenuo</td>
+<td style="text-align: left;">Referente</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">4.411</td>
+<td style="text-align: right;">3.678</td>
+<td style="text-align: right;">7.705</td>
+<td style="text-align: right;">0.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Media movil</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">4.417</td>
+<td style="text-align: right;">3.596</td>
+<td style="text-align: right;">7.571</td>
+<td style="text-align: right;">-0.118</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Media simple</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">5.374</td>
+<td style="text-align: right;">4.204</td>
+<td style="text-align: right;">8.711</td>
+<td style="text-align: right;">-21.810</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Ingenuo estacional</td>
+<td style="text-align: left;">Contraste</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">6.896</td>
+<td style="text-align: right;">5.575</td>
+<td style="text-align: right;">11.573</td>
+<td style="text-align: right;">-56.310</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="consumo-diario-de-energia-de-una-estacion-de-bombeo-horizonte-h7" class="level3">
+<h3 class="anchored" data-anchor-id="consumo-diario-de-energia-de-una-estacion-de-bombeo-horizonte-h7">Consumo diario de energia de una estacion de bombeo: horizonte <span class="math inline">\(h=7\)</span></h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 37%">
+<col style="width: 11%">
+<col style="width: 9%">
+<col style="width: 6%">
+<col style="width: 6%">
+<col style="width: 10%">
+<col style="width: 18%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">M&lt;U+00E9&gt;todo</th>
+<th style="text-align: left;">Rol</th>
+<th style="text-align: right;">Errores</th>
+<th style="text-align: right;">RMSE</th>
+<th style="text-align: right;">MAD</th>
+<th style="text-align: right;">MAPE (%)</th>
+<th style="text-align: right;">Mejora RMSE (%)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Media simple</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">34</td>
+<td style="text-align: right;">5.766</td>
+<td style="text-align: right;">4.549</td>
+<td style="text-align: right;">9.409</td>
+<td style="text-align: right;">21.211</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Suavizamiento exponencial simple</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">34</td>
+<td style="text-align: right;">7.137</td>
+<td style="text-align: right;">5.831</td>
+<td style="text-align: right;">12.080</td>
+<td style="text-align: right;">2.487</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Media movil</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">34</td>
+<td style="text-align: right;">7.161</td>
+<td style="text-align: right;">5.779</td>
+<td style="text-align: right;">11.909</td>
+<td style="text-align: right;">2.149</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Ingenuo</td>
+<td style="text-align: left;">Referente</td>
+<td style="text-align: right;">34</td>
+<td style="text-align: right;">7.319</td>
+<td style="text-align: right;">6.047</td>
+<td style="text-align: right;">12.554</td>
+<td style="text-align: right;">0.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Ingenuo estacional</td>
+<td style="text-align: left;">Contraste</td>
+<td style="text-align: right;">34</td>
+<td style="text-align: right;">7.319</td>
+<td style="text-align: right;">6.047</td>
+<td style="text-align: right;">12.554</td>
+<td style="text-align: right;">0.000</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="usuarios-conectados-a-la-red-de-un-operador-regional-horizonte-h1" class="level3">
+<h3 class="anchored" data-anchor-id="usuarios-conectados-a-la-red-de-un-operador-regional-horizonte-h1">Usuarios conectados a la red de un operador regional: horizonte <span class="math inline">\(h=1\)</span></h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 39%">
+<col style="width: 10%">
+<col style="width: 8%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 9%">
+<col style="width: 17%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">M&lt;U+00E9&gt;todo</th>
+<th style="text-align: left;">Rol</th>
+<th style="text-align: right;">Errores</th>
+<th style="text-align: right;">RMSE</th>
+<th style="text-align: right;">MAD</th>
+<th style="text-align: right;">MAPE (%)</th>
+<th style="text-align: right;">Mejora RMSE (%)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Holt</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">30</td>
+<td style="text-align: right;">6.943</td>
+<td style="text-align: right;">5.410</td>
+<td style="text-align: right;">1.345</td>
+<td style="text-align: right;">7.236</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Tendencia cuadratica</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">30</td>
+<td style="text-align: right;">7.295</td>
+<td style="text-align: right;">6.118</td>
+<td style="text-align: right;">1.521</td>
+<td style="text-align: right;">2.520</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Ingenuo</td>
+<td style="text-align: left;">Referente</td>
+<td style="text-align: right;">30</td>
+<td style="text-align: right;">7.484</td>
+<td style="text-align: right;">5.740</td>
+<td style="text-align: right;">1.425</td>
+<td style="text-align: right;">0.000</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Tendencia lineal</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">30</td>
+<td style="text-align: right;">7.599</td>
+<td style="text-align: right;">6.388</td>
+<td style="text-align: right;">1.592</td>
+<td style="text-align: right;">-1.530</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Doble media movil</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">30</td>
+<td style="text-align: right;">8.300</td>
+<td style="text-align: right;">7.081</td>
+<td style="text-align: right;">1.759</td>
+<td style="text-align: right;">-10.897</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Tendencia con ficticias de suma cero</td>
+<td style="text-align: left;">Contraste</td>
+<td style="text-align: right;">30</td>
+<td style="text-align: right;">8.425</td>
+<td style="text-align: right;">6.915</td>
+<td style="text-align: right;">1.724</td>
+<td style="text-align: right;">-12.569</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Tendencia exponencial</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">30</td>
+<td style="text-align: right;">19.208</td>
+<td style="text-align: right;">17.487</td>
+<td style="text-align: right;">4.358</td>
+<td style="text-align: right;">-156.650</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="usuarios-conectados-a-la-red-de-un-operador-regional-horizonte-h21" class="level3">
+<h3 class="anchored" data-anchor-id="usuarios-conectados-a-la-red-de-un-operador-regional-horizonte-h21">Usuarios conectados a la red de un operador regional: horizonte <span class="math inline">\(h=21\)</span></h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 39%">
+<col style="width: 10%">
+<col style="width: 8%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 9%">
+<col style="width: 17%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">M&lt;U+00E9&gt;todo</th>
+<th style="text-align: left;">Rol</th>
+<th style="text-align: right;">Errores</th>
+<th style="text-align: right;">RMSE</th>
+<th style="text-align: right;">MAD</th>
+<th style="text-align: right;">MAPE (%)</th>
+<th style="text-align: right;">Mejora RMSE (%)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Tendencia cuadratica</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">7.533</td>
+<td style="text-align: right;">5.946</td>
+<td style="text-align: right;">1.436</td>
+<td style="text-align: right;">74.729</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Tendencia lineal</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">8.102</td>
+<td style="text-align: right;">6.134</td>
+<td style="text-align: right;">1.486</td>
+<td style="text-align: right;">72.820</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Tendencia con ficticias de suma cero</td>
+<td style="text-align: left;">Contraste</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">9.275</td>
+<td style="text-align: right;">6.687</td>
+<td style="text-align: right;">1.619</td>
+<td style="text-align: right;">68.885</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Holt</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">14.091</td>
+<td style="text-align: right;">10.733</td>
+<td style="text-align: right;">2.592</td>
+<td style="text-align: right;">52.727</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Doble media movil</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">17.267</td>
+<td style="text-align: right;">14.359</td>
+<td style="text-align: right;">3.467</td>
+<td style="text-align: right;">42.074</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Ingenuo</td>
+<td style="text-align: left;">Referente</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">29.809</td>
+<td style="text-align: right;">27.890</td>
+<td style="text-align: right;">6.696</td>
+<td style="text-align: right;">0.000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Tendencia exponencial</td>
+<td style="text-align: left;">Aplicado</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">32.703</td>
+<td style="text-align: right;">31.788</td>
+<td style="text-align: right;">7.663</td>
+<td style="text-align: right;">-9.710</td>
+</tr>
+</tbody>
+</table>
+<p>Las tablas usan 29, 40 y 30 errores a un paso para las series 1, 2 y 3. En el horizonte máximo quedan, respectivamente, 18, 34 y 10, porque los últimos orígenes ya no disponen de una realización futura a distancia <span class="math inline">\(H\)</span>. Que un método no supere al referente en esta etapa no lo elimina automáticamente; la selección y validación del ganador corresponden a la iteración siguiente.</p>
+<ul>
+<li><strong>Serie 1.</strong> La tendencia con ficticias obtiene el menor RMSE a un paso (12.319) y Holt-Winters aditivo en <span class="math inline">\(h=12\)</span> (10.089). Ambos superan ampliamente al ingenuo estacional, lo que muestra el valor de representar conjuntamente tendencia y estacionalidad.</li>
+<li><strong>Serie 2.</strong> SES encabeza <span class="math inline">\(h=1\)</span> con RMSE 4.245, mientras la media simple encabeza <span class="math inline">\(h=7\)</span> con 5.766. El ingenuo estacional coincide con el ingenuo ordinario en <span class="math inline">\(h=7\)</span>: a esa distancia ambos reutilizan exactamente la observación de siete días atrás.</li>
+<li><strong>Serie 3.</strong> Holt presenta el menor RMSE a un paso (6.943) y la tendencia cuadrática en <span class="math inline">\(h=21\)</span> (7.533). La ventaja de las tendencias en el horizonte largo es marcada frente al ingenuo, aunque la decisión definitiva todavía debe pasar por la validación reservada para 6(d).</li>
+</ul>
 </section>
 </section>
 </section>

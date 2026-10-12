@@ -46,6 +46,9 @@ stopifnot(
   }, logical(1))),
   all(vapply(unique(asignacion$serie), function(serie) {
     any(asignacion$serie == serie & asignacion$rol == "Contraste")
+  }, logical(1))),
+  all(vapply(unique(asignacion$serie), function(serie) {
+    sum(asignacion$serie == serie & asignacion$rol == "Referente") == 1L
   }, logical(1)))
 )
 
@@ -81,5 +84,20 @@ stopifnot(
 
 modelo_exp <- ajustar_tendencia(exp(1 + 0.02 * t + 0.01 * sin(t)), "exponencial")
 stopifnot(diagnosticar_regresion(modelo_exp, m = 10)$escala == "logaritmica")
+
+errores_om <- origen_movil(1:10, n0 = 5, H = 3, ajustar = ajustar_ingenuo)
+metricas_om <- medidas(errores_om, c(1, 3))
+stopifnot(
+  nrow(errores_om) == 12L,
+  sum(errores_om$horizonte == 1L) == 5L,
+  sum(errores_om$horizonte == 3L) == 3L,
+  all(errores_om$error[errores_om$horizonte == 1L] == 1),
+  all(errores_om$error[errores_om$horizonte == 3L] == 3),
+  metricas_om$n_errores[metricas_om$horizonte == 1L] == 5L,
+  metricas_om$RMSE[metricas_om$horizonte == 1L] == 1,
+  metricas_om$MAD[metricas_om$horizonte == 3L] == 3,
+  inherits(try(origen_movil(1:10, 10, 1, ajustar_ingenuo), silent = TRUE), "try-error"),
+  inherits(try(origen_movil(1:10, 5, 6, ajustar_ingenuo), silent = TRUE), "try-error")
+)
 
 message("Optimizacion y asignacion: todas las pruebas finalizaron correctamente.")

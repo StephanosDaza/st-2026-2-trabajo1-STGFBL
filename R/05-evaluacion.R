@@ -230,6 +230,11 @@ definir_asignacion_metodos <- function(catalogo) {
     serie2 = "ingenuo_estacional",
     serie3 = "tendencia_estacional"
   )
+  referentes <- c(
+    serie1 = "ingenuo_estacional",
+    serie2 = "ingenuo",
+    serie3 = "ingenuo"
+  )
   evidencia <- c(
     serie1 = paste(
       "Tendencia creciente y estacionalidad mensual s=12;",
@@ -249,7 +254,8 @@ definir_asignacion_metodos <- function(catalogo) {
   filas <- lapply(names(aplicados), function(serie) {
     ids <- names(catalogo)
     rol <- ifelse(ids %in% contrastes[[serie]], "Contraste",
-                  ifelse(ids %in% aplicados[[serie]], "Aplicado", "No aplicado"))
+                  ifelse(ids == referentes[[serie]], "Referente",
+                         ifelse(ids %in% aplicados[[serie]], "Aplicado", "No aplicado")))
     tibble::tibble(
       serie = serie,
       metodo_id = ids,
@@ -270,7 +276,95 @@ definir_asignacion_metodos <- function(catalogo) {
   }, logical(1)))) {
     stop("Cada serie debe incluir al menos un metodo de contraste.", call. = FALSE)
   }
+  if (any(!vapply(names(aplicados), function(serie) {
+    sum(tabla$serie == serie & tabla$rol == "Referente") == 1L
+  }, logical(1)))) {
+    stop("Cada serie debe incluir exactamente un referente ingenuo.", call. = FALSE)
+  }
   tabla
+}
+
+origen_movil <- function(y, n0, H, ajustar, parametros = list(), fechas = NULL) {
+  y <- validar_y(y)
+  T <- length(y)
+  if (length(n0) != 1L || !is.numeric(n0) || !is.finite(n0) ||
+      n0 != round(n0) || n0 < 2L || n0 >= T) {
+    stop("n0 debe ser un entero entre 2 y T - 1.", call. = FALSE)
+  }
+  if (length(H) != 1L || !is.numeric(H) || !is.finite(H) ||
+      H != round(H) || H < 1L || H > T - n0) {
+    stop("H debe ser un entero entre 1 y T - n0.", call. = FALSE)
+  }
+  if (!is.function(ajustar)) stop("ajustar debe ser una funcion.", call. = FALSE)
+  if (!is.list(parametros) || is.null(names(parametros)) && length(parametros) > 0L) {
+    stop("parametros debe ser una lista nombrada.", call. = FALSE)
+  }
+  if ("y" %in% names(parametros)) {
+    stop("parametros no debe incluir el argumento y.", call. = FALSE)
+  }
+  if (!is.null(fechas) && length(fechas) != T) {
+    stop("fechas debe tener la misma longitud que y.", call. = FALSE)
+  }
+  n0 <- as.integer(n0)
+  H <- as.integer(H)
+
+  filas <- lapply(n0:(T - 1L), function(origen) {
+    modelo <- try(do.call(ajustar, c(list(y = y[seq_len(origen)]), parametros)),
+                  silent = TRUE)
+    if (inherits(modelo, "try-error")) {
+      stop(paste("El ajuste fallo en el origen", origen, ":",
+                 as.character(modelo)), call. = FALSE)
+    }
+    h_disponible <- min(H, T - origen)
+    pronostico <- modelo$pronosticar(h_disponible)
+    if (length(pronostico) != h_disponible || any(!is.finite(pronostico))) {
+      stop(paste("El modelo produjo un pronostico invalido en el origen", origen),
+           call. = FALSE)
+    }
+    objetivo <- origen + seq_len(h_disponible)
+    fila <- tibble::tibble(
+      origen = origen,
+      horizonte = seq_len(h_disponible),
+      objetivo = objetivo,
+      observado = y[objetivo],
+      pronostico = as.numeric(pronostico),
+      error = y[objetivo] - as.numeric(pronostico)
+    )
+    if (!is.null(fechas)) {
+      fila$fecha_origen <- fechas[origen]
+      fila$fecha_objetivo <- fechas[objetivo]
+      fila <- fila[, c("origen", "fecha_origen", "horizonte", "objetivo",
+                       "fecha_objetivo", "observado", "pronostico", "error")]
+    }
+    fila
+  })
+  do.call(rbind, filas)
+}
+
+medidas <- function(errores, horizontes = NULL) {
+  requeridas <- c("horizonte", "observado", "error")
+  if (!is.data.frame(errores) || !all(requeridas %in% names(errores))) {
+    stop("errores debe contener horizonte, observado y error.", call. = FALSE)
+  }
+  if (is.null(horizontes)) horizontes <- sort(unique(errores$horizonte))
+  if (!is.numeric(horizontes) || any(!is.finite(horizontes)) ||
+      any(horizontes != round(horizontes)) || any(horizontes < 1L)) {
+    stop("horizontes debe contener enteros positivos.", call. = FALSE)
+  }
+  filas <- lapply(as.integer(horizontes), function(h) {
+    e <- errores[errores$horizonte == h, , drop = FALSE]
+    if (nrow(e) == 0L) stop(paste("No hay errores para h =", h), call. = FALSE)
+    mape <- if (any(e$observado == 0)) NA_real_ else
+      100 * mean(abs(e$error) / abs(e$observado))
+    tibble::tibble(
+      horizonte = h,
+      n_errores = nrow(e),
+      RMSE = sqrt(mean(e$error^2)),
+      MAD = mean(abs(e$error)),
+      MAPE = mape
+    )
+  })
+  do.call(rbind, filas)
 }
 
 jarque_bera <- function(e, nivel = 0.05) {

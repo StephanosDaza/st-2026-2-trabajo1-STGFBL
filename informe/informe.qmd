@@ -48,6 +48,12 @@ fila <- function(k, nombre, col) {
 }
 dep <- function(k) resultados[[k]]$dependencia
 lineas <- function(patron) cat(grep(patron, salida, value = TRUE), sep = "\n")
+mejor_om <- function(k, h) {
+  tabla_origen_movil |>
+    filter(serie == k, horizonte == h) |>
+    arrange(RMSE) |>
+    slice(1)
+}
 ```
 
 # 1. Estructura del repositorio
@@ -587,6 +593,46 @@ tabla_normalidad_regresion |>
 ```
 
 Jarque-Bera no rechaza normalidad en ninguna regresión al 5 %. Esta conclusión no rescata las regresiones de la serie 3 como modelos completos: sus residuos siguen autocorrelacionados según Ljung-Box y Durbin-Watson.
+
+## 6(c) Evaluación por origen móvil
+
+La evaluación simula el uso real del pronóstico mediante una ventana expansiva. El primer origen es $n_0$: se ajusta el modelo con $y_1,\ldots,y_{n_0}$ y se pronostican hasta $H$ períodos. Luego el origen avanza una observación, se incorpora el dato recién disponible, se vuelve a ajustar el modelo con $y_1,\ldots,y_{n_0+1}$ y se repite el proceso. Por tanto, el modelo sí se reestima en cada origen; lo que permanece fijo son los hiperparámetros elegidos exclusivamente en el tramo inicial de estimación, como $k$, $\alpha$, $\beta$ y $\gamma$.
+
+Para cada método se calculan errores $e_{o,h}=y_{o+h}-\hat y_{o+h\mid o}$ sobre los mismos orígenes. En cada horizonte se resumen mediante
+$$RMSE_h=\sqrt{\frac{1}{N_h}\sum_o e_{o,h}^2},\qquad
+MAD_h=\frac{1}{N_h}\sum_o|e_{o,h}|,$$
+$$MAPE_h=\frac{100}{N_h}\sum_o\left|\frac{e_{o,h}}{y_{o+h}}\right|.$$
+El RMSE determina el orden de las tablas; MAD y MAPE complementan la lectura con error absoluto y porcentual. La columna *Mejora RMSE (%)* es positiva cuando el método supera al referente y negativa cuando queda por debajo.
+
+Se elige como referente el ingenuo estacional para la serie 1, porque su patrón mensual exige comparar contra el valor del mismo mes anterior. Para las series 2 y 3 se usa el ingenuo ordinario, coherente con la ausencia de estacionalidad material. El referente se calcula sobre exactamente los mismos orígenes que los demás métodos.
+
+```{r}
+#| label: tablas-origen-movil
+#| echo: true
+#| results: asis
+for (k in names(config)) {
+  for (h in c(1L, config[[k]]$H)) {
+    tb <- tabla_origen_movil |>
+      filter(serie == k, horizonte == h) |>
+      select(metodo, rol, n_errores, RMSE, MAD, MAPE, mejora_rmse_pct) |>
+      arrange(RMSE)
+    cat("\n### ", resultados[[k]]$ficha$nombre, ": horizonte $h=", h, "$\n\n", sep = "")
+    print(knitr::kable(
+      tb,
+      col.names = c("Método", "Rol", "Errores", "RMSE", "MAD", "MAPE (%)",
+                    "Mejora RMSE (%)"),
+      digits = 3
+    ))
+    cat("\n")
+  }
+}
+```
+
+Las tablas usan `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie1" & tabla_origen_movil$horizonte == 1][1]`, `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie2" & tabla_origen_movil$horizonte == 1][1]` y `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie3" & tabla_origen_movil$horizonte == 1][1]` errores a un paso para las series 1, 2 y 3. En el horizonte máximo quedan, respectivamente, `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie1" & tabla_origen_movil$horizonte == config$serie1$H][1]`, `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie2" & tabla_origen_movil$horizonte == config$serie2$H][1]` y `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "serie3" & tabla_origen_movil$horizonte == config$serie3$H][1]`, porque los últimos orígenes ya no disponen de una realización futura a distancia $H$. Que un método no supere al referente en esta etapa no lo elimina automáticamente; la selección y validación del ganador corresponden a la iteración siguiente.
+
+- **Serie 1.** La tendencia con ficticias obtiene el menor RMSE a un paso (`r f(mejor_om("serie1", 1)$RMSE, 3)`) y Holt-Winters aditivo en $h=12$ (`r f(mejor_om("serie1", config$serie1$H)$RMSE, 3)`). Ambos superan ampliamente al ingenuo estacional, lo que muestra el valor de representar conjuntamente tendencia y estacionalidad.
+- **Serie 2.** SES encabeza $h=1$ con RMSE `r f(mejor_om("serie2", 1)$RMSE, 3)`, mientras la media simple encabeza $h=7$ con `r f(mejor_om("serie2", config$serie2$H)$RMSE, 3)`. El ingenuo estacional coincide con el ingenuo ordinario en $h=7$: a esa distancia ambos reutilizan exactamente la observación de siete días atrás.
+- **Serie 3.** Holt presenta el menor RMSE a un paso (`r f(mejor_om("serie3", 1)$RMSE, 3)`) y la tendencia cuadrática en $h=21$ (`r f(mejor_om("serie3", config$serie3$H)$RMSE, 3)`). La ventaja de las tendencias en el horizonte largo es marcada frente al ingenuo, aunque la decisión definitiva todavía debe pasar por la validación reservada para 6(d).
 
 # Bloques de verificación
 
