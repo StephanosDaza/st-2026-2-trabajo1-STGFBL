@@ -37,6 +37,10 @@ stopifnot(
   isTRUE(all.equal(tendencia_estacional$pronosticar(8),
                    10 + 0.5 * (33:40) + efectos[((33:40) - 1L) %% s + 1L],
                    tolerance = 1e-9)),
+  all(c("grados_libertad", "valor_critico", "decision") %in%
+        names(tendencia_estacional$parametros$coeficientes)),
+  all(tendencia_estacional$parametros$coeficientes$grados_libertad ==
+        length(y_te) - (s + 1L)),
   all(is.na(tendencia_estacional$yhat[1:(2 * s)])),
   all(is.finite(tendencia_estacional$yhat[(2 * s + 1L):length(y_te)]))
 )

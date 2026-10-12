@@ -63,7 +63,13 @@ stopifnot(
 y_ruido <- 3 + 0.4 * t + rep(c(-0.8, 0.2, 0.5, -0.1), length.out = length(t))
 regresion <- ajustar_tendencia(y_ruido, "lineal")
 tabla <- regresion$parametros$coeficientes
-stopifnot(isTRUE(all.equal(tabla$t_robusto, tabla$estimacion / tabla$se_hac)))
+stopifnot(
+  isTRUE(all.equal(tabla$t_robusto, tabla$estimacion / tabla$se_hac)),
+  all(tabla$grados_libertad == length(y_ruido) - 2L),
+  all(tabla$valor_critico == qt(0.975, df = length(y_ruido) - 2L)),
+  identical(tabla$decision,
+            ifelse(tabla$p_valor_robusto < 0.05, "Rechazar H0", "No rechazar H0"))
+)
 
 holt <- ajustar_holt(rep(5, 12), 0.3, 0.2)
 verificar_contrato(holt, rep(5, 12))

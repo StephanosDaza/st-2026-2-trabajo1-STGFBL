@@ -503,7 +503,11 @@ La marca roja en las curvas y la cruz blanca en los mapas identifican el mínimo
 
 ## 6(b) Regresiones
 
-Las regresiones se ajustan sobre el tramo de estimación. Para cada coeficiente se presenta el error estándar ordinario y el HAC con núcleo de Bartlett. La prueba $t$ usa el error HAC, porque la autocorrelación residual invalida el error ordinario aunque los coeficientes de mínimos cuadrados conserven su interpretación. En la tendencia exponencial, coeficientes y residuos están en escala logarítmica.
+Las regresiones se ajustan sobre el tramo de estimación. Para cada coeficiente $\beta_j$ se contrasta
+$$H_0:\beta_j=0\qquad\text{contra}\qquad H_1:\beta_j\ne0.$$
+La prueba usa el error estándar HAC con núcleo de Bartlett, porque la autocorrelación residual invalida el error ordinario aunque los coeficientes de mínimos cuadrados conserven su interpretación. El estadístico es
+$$t_j=\frac{\hat\beta_j}{EE_{HAC}(\hat\beta_j)}\sim t_{n-q}\quad\text{bajo }H_0,$$
+donde $q$ es el número de coeficientes de la regresión. Al 5 % se rechaza $H_0$ cuando $|t_j|>t_{0.975;n-q}$; equivalentemente, cuando el valor p bilateral es menor que 0.05. En la tendencia exponencial, coeficientes y residuos están en escala logarítmica. Las tablas presentan, en orden, el estadístico observado, sus grados de libertad, el valor crítico, el valor p y la decisión para cada coeficiente.
 
 ```{r}
 #| label: coeficientes-regresiones
@@ -514,19 +518,21 @@ for (i in seq_len(nrow(claves))) {
   clave <- claves[i, ]
   tb <- tabla_coeficientes_regresion |>
     filter(serie == clave$serie, metodo == clave$metodo) |>
-    select(termino, estimacion, se_ordinario, se_hac, t_robusto, p_valor_robusto)
+    select(termino, estimacion, se_ordinario, se_hac, t_robusto,
+           grados_libertad, valor_critico, p_valor_robusto, decision)
   cat("\n**", clave$serie, " - ", clave$metodo,
       " (escala ", clave$escala, ")**\n\n", sep = "")
   print(knitr::kable(
     tb,
-    col.names = c("Termino", "Estimacion", "EE ordinario", "EE HAC", "t robusto", "Valor p"),
+    col.names = c("Término", "Estimación", "EE ordinario", "EE HAC", "t robusto",
+                  "gl", "Crítico", "Valor p", "Decisión"),
     digits = 4
   ))
   cat("\n")
 }
 ```
 
-En la serie 1 la pendiente es positiva y todos los efectos estacionales estimados en la codificación de suma cero resultan significativos al 5 %. En la serie 3, el término cuadrático no es significativo ($p=$ `r vp(tabla_coeficientes_regresion$p_valor_robusto[tabla_coeficientes_regresion$serie == "serie3" & tabla_coeficientes_regresion$metodo == "Tendencia cuadratica" & tabla_coeficientes_regresion$termino == "t2"])`), y ninguno de los efectos estacionales del modelo de contraste es significativo. Esto coincide con el diagnóstico previo: crecimiento aproximadamente lineal y ausencia de estacionalidad material.
+**Lectura de las decisiones.** En la serie 1 se rechaza $H_0$ para el intercepto, la pendiente positiva y todos los contrastes estacionales mostrados: hay evidencia de crecimiento y de diferencias mensuales respecto a la estación de referencia. En la serie 3, intercepto y pendiente son significativos en las tendencias lineal, cuadrática y exponencial, pero el término cuadrático no lo es ($p=$ `r vp(tabla_coeficientes_regresion$p_valor_robusto[tabla_coeficientes_regresion$serie == "serie3" & tabla_coeficientes_regresion$metodo == "Tendencia cuadratica" & tabla_coeficientes_regresion$termino == "t2"])`). En la regresión estacional de contraste se rechaza $H_0$ para intercepto y pendiente, pero no para ninguno de los contrastes mensuales. En términos de la serie, la evidencia sostiene un crecimiento aproximadamente lineal y no sostiene estacionalidad material en los usuarios conectados.
 
 ### Dependencia residual
 

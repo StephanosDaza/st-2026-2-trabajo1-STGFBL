@@ -4750,7 +4750,7 @@ window.Quarto = {
 </section>
 <section id="b-regresiones" class="level2">
 <h2 class="anchored" data-anchor-id="b-regresiones">6(b) Regresiones</h2>
-<p>Las regresiones se ajustan sobre el tramo de estimación. Para cada coeficiente se presenta el error estándar ordinario y el HAC con núcleo de Bartlett. La prueba <span class="math inline">\(t\)</span> usa el error HAC, porque la autocorrelación residual invalida el error ordinario aunque los coeficientes de mínimos cuadrados conserven su interpretación. En la tendencia exponencial, coeficientes y residuos están en escala logarítmica.</p>
+<p>Las regresiones se ajustan sobre el tramo de estimación. Para cada coeficiente <span class="math inline">\(\beta_j\)</span> se contrasta <span class="math display">\[H_0:\beta_j=0\qquad\text{contra}\qquad H_1:\beta_j\ne0.\]</span> La prueba usa el error estándar HAC con núcleo de Bartlett, porque la autocorrelación residual invalida el error ordinario aunque los coeficientes de mínimos cuadrados conserven su interpretación. El estadístico es <span class="math display">\[t_j=\frac{\hat\beta_j}{EE_{HAC}(\hat\beta_j)}\sim t_{n-q}\quad\text{bajo }H_0,\]</span> donde <span class="math inline">\(q\)</span> es el número de coeficientes de la regresión. Al 5 % se rechaza <span class="math inline">\(H_0\)</span> cuando <span class="math inline">\(|t_j|&gt;t_{0.975;n-q}\)</span>; equivalentemente, cuando el valor p bilateral es menor que 0.05. En la tendencia exponencial, coeficientes y residuos están en escala logarítmica. Las tablas presentan, en orden, el estadístico observado, sus grados de libertad, el valor crítico, el valor p y la decisión para cada coeficiente.</p>
 <details class="code-fold">
 <summary>Ver código</summary>
 <div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>claves <span class="ot">&lt;-</span> <span class="fu">unique</span>(tabla_coeficientes_regresion[, <span class="fu">c</span>(<span class="st">&quot;serie&quot;</span>, <span class="st">&quot;metodo&quot;</span>, <span class="st">&quot;escala&quot;</span>)])</span>
@@ -4758,27 +4758,43 @@ window.Quarto = {
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  clave <span class="ot">&lt;-</span> claves[i, ]</span>
 <span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  tb <span class="ot">&lt;-</span> tabla_coeficientes_regresion <span class="sc">|&gt;</span></span>
 <span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(serie <span class="sc">==</span> clave<span class="sc">$</span>serie, metodo <span class="sc">==</span> clave<span class="sc">$</span>metodo) <span class="sc">|&gt;</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(termino, estimacion, se_ordinario, se_hac, t_robusto, p_valor_robusto)</span>
-<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">**&quot;</span>, clave<span class="sc">$</span>serie, <span class="st">&quot; - &quot;</span>, clave<span class="sc">$</span>metodo,</span>
-<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot; (escala &quot;</span>, clave<span class="sc">$</span>escala, <span class="st">&quot;)**</span><span class="sc">\n\n</span><span class="st">&quot;</span>, <span class="at">sep =</span> <span class="st">&quot;&quot;</span>)</span>
-<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
-<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>    tb,</span>
-<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Termino&quot;</span>, <span class="st">&quot;Estimacion&quot;</span>, <span class="st">&quot;EE ordinario&quot;</span>, <span class="st">&quot;EE HAC&quot;</span>, <span class="st">&quot;t robusto&quot;</span>, <span class="st">&quot;Valor p&quot;</span>),</span>
-<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">digits =</span> <span class="dv">4</span></span>
-<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>  ))</span>
-<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
-<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(termino, estimacion, se_ordinario, se_hac, t_robusto,</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>           grados_libertad, valor_critico, p_valor_robusto, decision)</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">**&quot;</span>, clave<span class="sc">$</span>serie, <span class="st">&quot; - &quot;</span>, clave<span class="sc">$</span>metodo,</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>      <span class="st">&quot; (escala &quot;</span>, clave<span class="sc">$</span>escala, <span class="st">&quot;)**</span><span class="sc">\n\n</span><span class="st">&quot;</span>, <span class="at">sep =</span> <span class="st">&quot;&quot;</span>)</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">print</span>(knitr<span class="sc">::</span><span class="fu">kable</span>(</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>    tb,</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">col.names =</span> <span class="fu">c</span>(<span class="st">&quot;Término&quot;</span>, <span class="st">&quot;Estimación&quot;</span>, <span class="st">&quot;EE ordinario&quot;</span>, <span class="st">&quot;EE HAC&quot;</span>, <span class="st">&quot;t robusto&quot;</span>,</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>                  <span class="st">&quot;gl&quot;</span>, <span class="st">&quot;Crítico&quot;</span>, <span class="st">&quot;Valor p&quot;</span>, <span class="st">&quot;Decisión&quot;</span>),</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>    <span class="at">digits =</span> <span class="dv">4</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>  ))</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cat</span>(<span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copiar al portapapeles" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <p><strong>serie1 - Tendencia con ficticias de suma cero (escala original)</strong></p>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 16%">
+<col style="width: 12%">
+<col style="width: 6%">
+<col style="width: 9%">
+<col style="width: 3%">
+<col style="width: 14%">
+<col style="width: 7%">
+<col style="width: 15%">
+</colgroup>
 <thead>
 <tr class="header">
-<th style="text-align: left;">Termino</th>
-<th style="text-align: right;">Estimacion</th>
+<th style="text-align: left;">T&lt;U+00E9&gt;rmino</th>
+<th style="text-align: right;">Estimaci&lt;U+00F3&gt;n</th>
 <th style="text-align: right;">EE ordinario</th>
 <th style="text-align: right;">EE HAC</th>
 <th style="text-align: right;">t robusto</th>
+<th style="text-align: right;">gl</th>
+<th style="text-align: right;">Cr&lt;U+00ED&gt;tico</th>
 <th style="text-align: right;">Valor p</th>
+<th style="text-align: left;">Decisi&lt;U+00F3&gt;n</th>
 </tr>
 </thead>
 <tbody>
@@ -4788,7 +4804,10 @@ window.Quarto = {
 <td style="text-align: right;">2.2346</td>
 <td style="text-align: right;">1.8609</td>
 <td style="text-align: right;">269.0482</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">t</td>
@@ -4796,7 +4815,10 @@ window.Quarto = {
 <td style="text-align: right;">0.0334</td>
 <td style="text-align: right;">0.0257</td>
 <td style="text-align: right;">76.5739</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_2</td>
@@ -4804,7 +4826,10 @@ window.Quarto = {
 <td style="text-align: right;">3.6070</td>
 <td style="text-align: right;">3.2600</td>
 <td style="text-align: right;">15.6546</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">gamma_3</td>
@@ -4812,7 +4837,10 @@ window.Quarto = {
 <td style="text-align: right;">3.6065</td>
 <td style="text-align: right;">3.1807</td>
 <td style="text-align: right;">13.7432</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_4</td>
@@ -4820,7 +4848,10 @@ window.Quarto = {
 <td style="text-align: right;">3.6064</td>
 <td style="text-align: right;">2.8942</td>
 <td style="text-align: right;">2.8647</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0051</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">gamma_5</td>
@@ -4828,7 +4859,10 @@ window.Quarto = {
 <td style="text-align: right;">3.6065</td>
 <td style="text-align: right;">3.7867</td>
 <td style="text-align: right;">-3.4676</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0008</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_6</td>
@@ -4836,7 +4870,10 @@ window.Quarto = {
 <td style="text-align: right;">3.6070</td>
 <td style="text-align: right;">2.6842</td>
 <td style="text-align: right;">-9.6240</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">gamma_7</td>
@@ -4844,7 +4881,10 @@ window.Quarto = {
 <td style="text-align: right;">3.6077</td>
 <td style="text-align: right;">4.6503</td>
 <td style="text-align: right;">-6.7317</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_8</td>
@@ -4852,7 +4892,10 @@ window.Quarto = {
 <td style="text-align: right;">3.7840</td>
 <td style="text-align: right;">3.5387</td>
 <td style="text-align: right;">-7.3529</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">gamma_9</td>
@@ -4860,7 +4903,10 @@ window.Quarto = {
 <td style="text-align: right;">3.7835</td>
 <td style="text-align: right;">3.4222</td>
 <td style="text-align: right;">-9.0626</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_10</td>
@@ -4868,7 +4914,10 @@ window.Quarto = {
 <td style="text-align: right;">3.7834</td>
 <td style="text-align: right;">2.5299</td>
 <td style="text-align: right;">-5.6380</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">gamma_11</td>
@@ -4876,7 +4925,10 @@ window.Quarto = {
 <td style="text-align: right;">3.7835</td>
 <td style="text-align: right;">3.0750</td>
 <td style="text-align: right;">-3.2960</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0013</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_12</td>
@@ -4884,20 +4936,37 @@ window.Quarto = {
 <td style="text-align: right;">3.7840</td>
 <td style="text-align: right;">4.3415</td>
 <td style="text-align: right;">3.7145</td>
+<td style="text-align: right;">102</td>
+<td style="text-align: right;">1.9835</td>
 <td style="text-align: right;">0.0003</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 </tbody>
 </table>
 <p><strong>serie3 - Tendencia lineal (escala original)</strong></p>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 16%">
+<col style="width: 12%">
+<col style="width: 6%">
+<col style="width: 9%">
+<col style="width: 3%">
+<col style="width: 14%">
+<col style="width: 7%">
+<col style="width: 15%">
+</colgroup>
 <thead>
 <tr class="header">
-<th style="text-align: left;">Termino</th>
-<th style="text-align: right;">Estimacion</th>
+<th style="text-align: left;">T&lt;U+00E9&gt;rmino</th>
+<th style="text-align: right;">Estimaci&lt;U+00F3&gt;n</th>
 <th style="text-align: right;">EE ordinario</th>
 <th style="text-align: right;">EE HAC</th>
 <th style="text-align: right;">t robusto</th>
+<th style="text-align: right;">gl</th>
+<th style="text-align: right;">Cr&lt;U+00ED&gt;tico</th>
 <th style="text-align: right;">Valor p</th>
+<th style="text-align: left;">Decisi&lt;U+00F3&gt;n</th>
 </tr>
 </thead>
 <tbody>
@@ -4907,7 +4976,10 @@ window.Quarto = {
 <td style="text-align: right;">1.2863</td>
 <td style="text-align: right;">1.7281</td>
 <td style="text-align: right;">114.4633</td>
+<td style="text-align: right;">118</td>
+<td style="text-align: right;">1.9803</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">t</td>
@@ -4915,20 +4987,37 @@ window.Quarto = {
 <td style="text-align: right;">0.0185</td>
 <td style="text-align: right;">0.0268</td>
 <td style="text-align: right;">57.0029</td>
+<td style="text-align: right;">118</td>
+<td style="text-align: right;">1.9803</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 </tbody>
 </table>
 <p><strong>serie3 - Tendencia cuadratica (escala original)</strong></p>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 16%">
+<col style="width: 12%">
+<col style="width: 6%">
+<col style="width: 9%">
+<col style="width: 3%">
+<col style="width: 14%">
+<col style="width: 7%">
+<col style="width: 15%">
+</colgroup>
 <thead>
 <tr class="header">
-<th style="text-align: left;">Termino</th>
-<th style="text-align: right;">Estimacion</th>
+<th style="text-align: left;">T&lt;U+00E9&gt;rmino</th>
+<th style="text-align: right;">Estimaci&lt;U+00F3&gt;n</th>
 <th style="text-align: right;">EE ordinario</th>
 <th style="text-align: right;">EE HAC</th>
 <th style="text-align: right;">t robusto</th>
+<th style="text-align: right;">gl</th>
+<th style="text-align: right;">Cr&lt;U+00ED&gt;tico</th>
 <th style="text-align: right;">Valor p</th>
+<th style="text-align: left;">Decisi&lt;U+00F3&gt;n</th>
 </tr>
 </thead>
 <tbody>
@@ -4938,7 +5027,10 @@ window.Quarto = {
 <td style="text-align: right;">1.9539</td>
 <td style="text-align: right;">2.2044</td>
 <td style="text-align: right;">89.2599</td>
+<td style="text-align: right;">117</td>
+<td style="text-align: right;">1.9804</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">t</td>
@@ -4946,7 +5038,10 @@ window.Quarto = {
 <td style="text-align: right;">0.0745</td>
 <td style="text-align: right;">0.0865</td>
 <td style="text-align: right;">18.2465</td>
+<td style="text-align: right;">117</td>
+<td style="text-align: right;">1.9804</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">t2</td>
@@ -4954,20 +5049,37 @@ window.Quarto = {
 <td style="text-align: right;">0.0006</td>
 <td style="text-align: right;">0.0007</td>
 <td style="text-align: right;">-0.5814</td>
+<td style="text-align: right;">117</td>
+<td style="text-align: right;">1.9804</td>
 <td style="text-align: right;">0.5621</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 </tbody>
 </table>
 <p><strong>serie3 - Tendencia exponencial (escala logaritmica)</strong></p>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 16%">
+<col style="width: 12%">
+<col style="width: 6%">
+<col style="width: 9%">
+<col style="width: 3%">
+<col style="width: 14%">
+<col style="width: 7%">
+<col style="width: 15%">
+</colgroup>
 <thead>
 <tr class="header">
-<th style="text-align: left;">Termino</th>
-<th style="text-align: right;">Estimacion</th>
+<th style="text-align: left;">T&lt;U+00E9&gt;rmino</th>
+<th style="text-align: right;">Estimaci&lt;U+00F3&gt;n</th>
 <th style="text-align: right;">EE ordinario</th>
 <th style="text-align: right;">EE HAC</th>
 <th style="text-align: right;">t robusto</th>
+<th style="text-align: right;">gl</th>
+<th style="text-align: right;">Cr&lt;U+00ED&gt;tico</th>
 <th style="text-align: right;">Valor p</th>
+<th style="text-align: left;">Decisi&lt;U+00F3&gt;n</th>
 </tr>
 </thead>
 <tbody>
@@ -4977,7 +5089,10 @@ window.Quarto = {
 <td style="text-align: right;">0.0055</td>
 <td style="text-align: right;">0.0110</td>
 <td style="text-align: right;">486.2426</td>
+<td style="text-align: right;">118</td>
+<td style="text-align: right;">1.9803</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">t</td>
@@ -4985,20 +5100,37 @@ window.Quarto = {
 <td style="text-align: right;">0.0001</td>
 <td style="text-align: right;">0.0002</td>
 <td style="text-align: right;">33.4368</td>
+<td style="text-align: right;">118</td>
+<td style="text-align: right;">1.9803</td>
 <td style="text-align: right;">0</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 </tbody>
 </table>
 <p><strong>serie3 - Tendencia con ficticias de suma cero (escala original)</strong></p>
 <table class="caption-top table">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 16%">
+<col style="width: 12%">
+<col style="width: 6%">
+<col style="width: 9%">
+<col style="width: 3%">
+<col style="width: 14%">
+<col style="width: 7%">
+<col style="width: 15%">
+</colgroup>
 <thead>
 <tr class="header">
-<th style="text-align: left;">Termino</th>
-<th style="text-align: right;">Estimacion</th>
+<th style="text-align: left;">T&lt;U+00E9&gt;rmino</th>
+<th style="text-align: right;">Estimaci&lt;U+00F3&gt;n</th>
 <th style="text-align: right;">EE ordinario</th>
 <th style="text-align: right;">EE HAC</th>
 <th style="text-align: right;">t robusto</th>
+<th style="text-align: right;">gl</th>
+<th style="text-align: right;">Cr&lt;U+00ED&gt;tico</th>
 <th style="text-align: right;">Valor p</th>
+<th style="text-align: left;">Decisi&lt;U+00F3&gt;n</th>
 </tr>
 </thead>
 <tbody>
@@ -5008,7 +5140,10 @@ window.Quarto = {
 <td style="text-align: right;">1.2947</td>
 <td style="text-align: right;">1.5827</td>
 <td style="text-align: right;">124.8582</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">t</td>
@@ -5016,7 +5151,10 @@ window.Quarto = {
 <td style="text-align: right;">0.0186</td>
 <td style="text-align: right;">0.0269</td>
 <td style="text-align: right;">56.9939</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.0000</td>
+<td style="text-align: left;">Rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_2</td>
@@ -5024,7 +5162,10 @@ window.Quarto = {
 <td style="text-align: right;">2.1273</td>
 <td style="text-align: right;">1.9517</td>
 <td style="text-align: right;">1.1136</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.2679</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">gamma_3</td>
@@ -5032,7 +5173,10 @@ window.Quarto = {
 <td style="text-align: right;">2.1266</td>
 <td style="text-align: right;">1.5607</td>
 <td style="text-align: right;">0.6235</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.5343</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_4</td>
@@ -5040,7 +5184,10 @@ window.Quarto = {
 <td style="text-align: right;">2.1261</td>
 <td style="text-align: right;">1.4549</td>
 <td style="text-align: right;">0.2561</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.7983</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">gamma_5</td>
@@ -5048,7 +5195,10 @@ window.Quarto = {
 <td style="text-align: right;">2.1258</td>
 <td style="text-align: right;">2.2120</td>
 <td style="text-align: right;">1.7325</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.0861</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_6</td>
@@ -5056,7 +5206,10 @@ window.Quarto = {
 <td style="text-align: right;">2.1256</td>
 <td style="text-align: right;">2.3684</td>
 <td style="text-align: right;">0.8748</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.3836</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">gamma_7</td>
@@ -5064,7 +5217,10 @@ window.Quarto = {
 <td style="text-align: right;">2.1256</td>
 <td style="text-align: right;">1.7486</td>
 <td style="text-align: right;">-0.1479</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.8827</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_8</td>
@@ -5072,7 +5228,10 @@ window.Quarto = {
 <td style="text-align: right;">2.1258</td>
 <td style="text-align: right;">1.4832</td>
 <td style="text-align: right;">-0.0128</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.9898</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">gamma_9</td>
@@ -5080,7 +5239,10 @@ window.Quarto = {
 <td style="text-align: right;">2.1261</td>
 <td style="text-align: right;">1.3298</td>
 <td style="text-align: right;">0.4743</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.6363</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_10</td>
@@ -5088,7 +5250,10 @@ window.Quarto = {
 <td style="text-align: right;">2.1266</td>
 <td style="text-align: right;">1.7061</td>
 <td style="text-align: right;">-1.6703</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.0978</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">gamma_11</td>
@@ -5096,7 +5261,10 @@ window.Quarto = {
 <td style="text-align: right;">2.1273</td>
 <td style="text-align: right;">2.0038</td>
 <td style="text-align: right;">-0.8135</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.4177</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">gamma_12</td>
@@ -5104,11 +5272,14 @@ window.Quarto = {
 <td style="text-align: right;">2.1281</td>
 <td style="text-align: right;">2.2364</td>
 <td style="text-align: right;">-1.5115</td>
+<td style="text-align: right;">107</td>
+<td style="text-align: right;">1.9824</td>
 <td style="text-align: right;">0.1336</td>
+<td style="text-align: left;">No rechazar H0</td>
 </tr>
 </tbody>
 </table>
-<p>En la serie 1 la pendiente es positiva y todos los efectos estacionales estimados en la codificación de suma cero resultan significativos al 5 %. En la serie 3, el término cuadrático no es significativo (<span class="math inline">\(p=\)</span> <span class="math inline">\(= 0.5621\)</span>), y ninguno de los efectos estacionales del modelo de contraste es significativo. Esto coincide con el diagnóstico previo: crecimiento aproximadamente lineal y ausencia de estacionalidad material.</p>
+<p><strong>Lectura de las decisiones.</strong> En la serie 1 se rechaza <span class="math inline">\(H_0\)</span> para el intercepto, la pendiente positiva y todos los contrastes estacionales mostrados: hay evidencia de crecimiento y de diferencias mensuales respecto a la estación de referencia. En la serie 3, intercepto y pendiente son significativos en las tendencias lineal, cuadrática y exponencial, pero el término cuadrático no lo es (<span class="math inline">\(p=\)</span> <span class="math inline">\(= 0.5621\)</span>). En la regresión estacional de contraste se rechaza <span class="math inline">\(H_0\)</span> para intercepto y pendiente, pero no para ninguno de los contrastes mensuales. En términos de la serie, la evidencia sostiene un crecimiento aproximadamente lineal y no sostiene estacionalidad material en los usuarios conectados.</p>
 <section id="dependencia-residual" class="level3">
 <h3 class="anchored" data-anchor-id="dependencia-residual">Dependencia residual</h3>
 <p>La tabla reúne tres diagnósticos complementarios. El primero es el <strong>contraste individual de autocorrelación</strong> en el rezago 1: <span class="math display">\[H_0:\rho_1=0 \qquad\text{contra}\qquad H_1:\rho_1\ne0.\]</span> Bajo ruido blanco, <span class="math inline">\(r_1\approx N(0,1/n)\)</span>; al 5 % se rechaza <span class="math inline">\(H_0\)</span> cuando <span class="math inline">\(|r_1|&gt;1.96/\sqrt{n}\)</span>. Las columnas <span class="math inline">\(r_1\)</span> y <em>Banda</em> contienen el valor observado y ese límite bilateral. El correlograma extiende la misma comparación a cada rezago, pero debe leerse junto con un contraste conjunto para no multiplicar decisiones aisladas.</p>

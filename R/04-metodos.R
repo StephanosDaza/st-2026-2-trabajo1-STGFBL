@@ -181,13 +181,17 @@ ajustar_tendencia <- function(y, tipo = c("lineal", "cuadratica", "exponencial")
   se_hac <- sqrt(pmax(0, diag(hac$cov)))
   t_hac <- coeficientes / se_hac
   p_hac <- 2 * stats::pt(abs(t_hac), df = gl, lower.tail = FALSE)
+  valor_critico <- stats::qt(0.975, df = gl)
   tabla_coeficientes <- tibble::tibble(
     termino = names(coeficientes),
     estimacion = coeficientes,
     se_ordinario = se_ordinario,
     se_hac = se_hac,
     t_robusto = t_hac,
-    p_valor_robusto = p_hac
+    grados_libertad = gl,
+    valor_critico = valor_critico,
+    p_valor_robusto = p_hac,
+    decision = ifelse(p_hac < 0.05, "Rechazar H0", "No rechazar H0")
   )
 
   transformar <- function(eta, varianza = sigma2) {
@@ -348,13 +352,18 @@ ajustar_tendencia_estacional <- function(y, s) {
   se_ordinario <- sqrt(pmax(0, diag(cov_ordinaria)))
   se_hac <- sqrt(pmax(0, diag(hac$cov)))
   t_hac <- coeficientes / se_hac
+  p_hac <- 2 * stats::pt(abs(t_hac), df = gl, lower.tail = FALSE)
+  valor_critico <- stats::qt(0.975, df = gl)
   tabla_coeficientes <- tibble::tibble(
     termino = names(coeficientes),
     estimacion = coeficientes,
     se_ordinario = se_ordinario,
     se_hac = se_hac,
     t_robusto = t_hac,
-    p_valor_robusto = 2 * stats::pt(abs(t_hac), df = gl, lower.tail = FALSE)
+    grados_libertad = gl,
+    valor_critico = valor_critico,
+    p_valor_robusto = p_hac,
+    decision = ifelse(p_hac < 0.05, "Rechazar H0", "No rechazar H0")
   )
 
   efectos_estacionales <- c(
