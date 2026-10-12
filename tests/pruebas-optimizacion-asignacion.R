@@ -89,6 +89,8 @@ stopifnot(diagnosticar_regresion(modelo_exp, m = 10)$escala == "logaritmica")
 
 errores_om <- origen_movil(1:10, n0 = 5, H = 3, ajustar = ajustar_ingenuo)
 metricas_om <- medidas(errores_om, c(1, 3))
+errores_prueba <- c(-2, -1, 0, 1, 3)
+validacion_om <- validar_errores(errores_prueba, m = 1L)
 stopifnot(
   nrow(errores_om) == 12L,
   sum(errores_om$horizonte == 1L) == 5L,
@@ -99,7 +101,15 @@ stopifnot(
   metricas_om$RMSE[metricas_om$horizonte == 1L] == 1,
   metricas_om$MAD[metricas_om$horizonte == 3L] == 3,
   inherits(try(origen_movil(1:10, 10, 1, ajustar_ingenuo), silent = TRUE), "try-error"),
-  inherits(try(origen_movil(1:10, 5, 6, ajustar_ingenuo), silent = TRUE), "try-error")
+  inherits(try(origen_movil(1:10, 5, 6, ajustar_ingenuo), silent = TRUE), "try-error"),
+  validacion_om$n == 5L,
+  validacion_om$m == 1L,
+  validacion_om$media_cero$grados_libertad == 4L,
+  isTRUE(all.equal(
+    validacion_om$media_cero$estadistico,
+    mean(errores_prueba) / (sd(errores_prueba) / sqrt(5))
+  )),
+  inherits(graficar_errores(errores_om[errores_om$horizonte == 1L, ]), "ggplot")
 )
 
 message("Optimizacion y asignacion: todas las pruebas finalizaron correctamente.")

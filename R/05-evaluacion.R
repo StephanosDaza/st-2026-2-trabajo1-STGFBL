@@ -368,6 +368,103 @@ medidas <- function(errores, horizontes = NULL) {
   do.call(rbind, filas)
 }
 
+prueba_media_cero <- function(e, nivel = 0.05) {
+  e <- validar_y(e, minimo = 2L)
+  if (length(nivel) != 1L || !is.numeric(nivel) || !is.finite(nivel) ||
+      nivel <= 0 || nivel >= 1) {
+    stop("nivel debe estar en (0, 1).", call. = FALSE)
+  }
+  n <- length(e)
+  desviacion <- stats::sd(e)
+  if (!is.finite(desviacion) || desviacion <= 0) {
+    stop("Los errores deben tener desviacion estandar positiva.", call. = FALSE)
+  }
+  error_estandar <- desviacion / sqrt(n)
+  estadistico <- mean(e) / error_estandar
+  grados_libertad <- n - 1L
+  valor_critico <- stats::qt(1 - nivel / 2, df = grados_libertad)
+  valor_p <- 2 * stats::pt(abs(estadistico), df = grados_libertad,
+                           lower.tail = FALSE)
+  list(
+    hipotesis_nula = "mu_e = 0",
+    hipotesis_alternativa = "mu_e != 0",
+    media = mean(e),
+    error_estandar = error_estandar,
+    estadistico = estadistico,
+    grados_libertad = grados_libertad,
+    valor_critico = valor_critico,
+    valor_p = valor_p,
+    decision = if (valor_p < nivel) "Rechazar H0" else "No rechazar H0"
+  )
+}
+
+validar_errores <- function(errores, m = NULL, nivel = 0.05) {
+  if (is.data.frame(errores)) {
+    if (!"error" %in% names(errores)) {
+      stop("errores debe contener una columna error.", call. = FALSE)
+    }
+    e <- errores$error
+  } else {
+    e <- errores
+  }
+  e <- validar_y(e, minimo = 4L)
+  n <- length(e)
+  if (is.null(m)) m <- min(floor(n / 4), 24L)
+  if (length(m) != 1L || !is.numeric(m) || !is.finite(m) ||
+      m != round(m) || m < 1L || m >= n) {
+    stop("m debe ser un entero entre 1 y n - 1.", call. = FALSE)
+  }
+  m <- as.integer(m)
+
+  r <- acf_muestral(e, m)
+  banda <- banda_ruido_blanco(n)
+  lb <- ljung_box(r, T = n, m = m, p = 0L)
+  lb$hipotesis_nula <- paste0("rho_1 = ... = rho_", m, " = 0")
+  lb$hipotesis_alternativa <- paste0(
+    "Alguna autocorrelacion hasta el rezago ", m, " es distinta de 0."
+  )
+  lb$decision <- if (lb$valor_p < nivel) "Rechazar H0" else "No rechazar H0"
+
+  list(
+    errores = e,
+    n = n,
+    m = m,
+    acf = r,
+    banda_ruido_blanco = banda,
+    rezagos_fuera = which(abs(r) > banda),
+    media_cero = prueba_media_cero(e, nivel),
+    ljung_box = lb,
+    jarque_bera = jarque_bera(e, nivel),
+    durbin_watson = durbin_watson(e)
+  )
+}
+
+graficar_errores <- function(errores, titulo = NULL, unidad = NULL) {
+  requeridas <- c("error", "horizonte")
+  if (!is.data.frame(errores) || !all(requeridas %in% names(errores))) {
+    stop("errores debe ser la salida de origen_movil().", call. = FALSE)
+  }
+  if ("fecha_objetivo" %in% names(errores)) {
+    eje_x <- "fecha_objetivo"
+    etiqueta_x <- "Fecha pronosticada"
+  } else {
+    eje_x <- "objetivo"
+    etiqueta_x <- "Observacion pronosticada"
+  }
+  etiqueta_y <- if (is.null(unidad)) "Error" else paste0("Error [", unidad, "]")
+  ggplot2::ggplot(errores, ggplot2::aes(x = .data[[eje_x]], y = error)) +
+    ggplot2::geom_hline(yintercept = 0, color = "gray40", linetype = "dashed") +
+    ggplot2::geom_line(color = "steelblue", linewidth = 0.7) +
+    ggplot2::geom_point(color = "steelblue", size = 1.8) +
+    ggplot2::labs(
+      title = if (is.null(titulo)) "Errores de origen movil" else titulo,
+      subtitle = paste0("Pronosticos a un paso; n = ", nrow(errores)),
+      x = etiqueta_x,
+      y = etiqueta_y
+    ) +
+    ggplot2::theme_minimal()
+}
+
 jarque_bera <- function(e, nivel = 0.05) {
   e <- validar_y(e, minimo = 4L)
   if (length(nivel) != 1L || !is.numeric(nivel) || !is.finite(nivel) ||

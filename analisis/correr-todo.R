@@ -453,6 +453,105 @@ if (any(conteos_origen$minimo != conteos_origen$maximo)) {
 cat("\n>>> EVALUACION POR ORIGEN MOVIL\n")
 print(as.data.frame(tabla_origen_movil), digits = 5)
 
+
+# PUNTO 6(d): VALIDACION DE LOS GANADORES EN h = 1
+
+ganadores_h1 <- tabla_origen_movil |>
+  filter(horizonte == 1L) |>
+  group_by(serie) |>
+  slice_min(RMSE, n = 1L, with_ties = FALSE) |>
+  ungroup()
+
+tabla_media_ganadores <- list()
+tabla_dependencia_ganadores <- list()
+tabla_normalidad_ganadores <- list()
+tabla_dw_ganadores <- list()
+
+for (i in seq_len(nrow(ganadores_h1))) {
+  ganador <- ganadores_h1[i, ]
+  k <- ganador$serie
+  id <- ganador$metodo_id
+  errores <- resultados[[k]]$pronostico$origen_movil[[id]] |>
+    filter(horizonte == 1L)
+  diagnostico <- validar_errores(errores)
+  resultados[[k]]$pronostico$ganador_h1 <- list(
+    metodo_id = id,
+    metodo = ganador$metodo,
+    errores = errores,
+    diagnostico = diagnostico
+  )
+
+  prueba_t <- diagnostico$media_cero
+  tabla_media_ganadores[[i]] <- tibble(
+    serie = k, metodo = ganador$metodo, n = diagnostico$n,
+    media = prueba_t$media, error_estandar = prueba_t$error_estandar,
+    t = prueba_t$estadistico, gl = prueba_t$grados_libertad,
+    valor_critico = prueba_t$valor_critico, valor_p = prueba_t$valor_p,
+    decision = prueba_t$decision
+  )
+
+  lb <- diagnostico$ljung_box
+  tabla_dependencia_ganadores[[i]] <- tibble(
+    serie = k, metodo = ganador$metodo, n = diagnostico$n, m = diagnostico$m,
+    banda = diagnostico$banda_ruido_blanco,
+    rezagos_fuera = if (length(diagnostico$rezagos_fuera) == 0L) "Ninguno" else
+      paste(diagnostico$rezagos_fuera, collapse = ", "),
+    Q = lb$estadistico, gl = lb$grados_libertad,
+    valor_critico = lb$valor_critico, valor_p = lb$valor_p,
+    decision = lb$decision
+  )
+
+  jb <- diagnostico$jarque_bera
+  tabla_normalidad_ganadores[[i]] <- tibble(
+    serie = k, metodo = ganador$metodo,
+    JB = jb$estadistico, gl = jb$grados_libertad,
+    valor_critico = jb$valor_critico, valor_p = jb$valor_p,
+    decision = jb$decision, asimetria = jb$asimetria,
+    curtosis = jb$curtosis
+  )
+
+  dw <- diagnostico$durbin_watson
+  tabla_dw_ganadores[[i]] <- tibble(
+    serie = k, metodo = ganador$metodo,
+    r1 = dw$r1, DW = dw$estadistico,
+    aproximacion_DW = dw$aproximacion
+  )
+
+  guardar(
+    graficar_errores(
+      errores,
+      titulo = paste("Errores a un paso -", ganador$metodo, "-", k),
+      unidad = config[[k]]$unidad
+    ),
+    paste0(k, "-ganador-errores-tiempo")
+  )
+  guardar(
+    correlograma(
+      errores$error,
+      m = diagnostico$m,
+      titulo = paste("errores a un paso -", ganador$metodo, "-", k)
+    ),
+    paste0(k, "-ganador-correlograma-errores"),
+    ancho = 9, alto = 7
+  )
+}
+
+tabla_media_ganadores <- bind_rows(tabla_media_ganadores)
+tabla_dependencia_ganadores <- bind_rows(tabla_dependencia_ganadores)
+tabla_normalidad_ganadores <- bind_rows(tabla_normalidad_ganadores)
+tabla_dw_ganadores <- bind_rows(tabla_dw_ganadores)
+
+cat("\n>>> GANADORES EN h = 1\n")
+print(as.data.frame(ganadores_h1), digits = 5)
+cat("\n>>> MEDIA CERO EN ERRORES DE LOS GANADORES\n")
+print(as.data.frame(tabla_media_ganadores), digits = 5)
+cat("\n>>> DEPENDENCIA EN ERRORES DE LOS GANADORES\n")
+print(as.data.frame(tabla_dependencia_ganadores), digits = 5)
+cat("\n>>> NORMALIDAD EN ERRORES DE LOS GANADORES\n")
+print(as.data.frame(tabla_normalidad_ganadores), digits = 5)
+cat("\n>>> DURBIN-WATSON EN ERRORES DE LOS GANADORES\n")
+print(as.data.frame(tabla_dw_ganadores), digits = 5)
+
 # BLOQUES DE VERIFICACION
 
 cat("\n\n====================================================================\n")

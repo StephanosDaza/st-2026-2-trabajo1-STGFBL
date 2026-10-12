@@ -54,6 +54,7 @@ mejor_om <- function(k, h) {
     arrange(RMSE) |>
     slice(1)
 }
+vg <- function(tabla, k, columna) tabla[[columna]][tabla$serie == k][1]
 ```
 
 # 1. Estructura del repositorio
@@ -633,6 +634,134 @@ Las tablas usan `r tabla_origen_movil$n_errores[tabla_origen_movil$serie == "ser
 - **Serie 1.** La tendencia con ficticias obtiene el menor RMSE a un paso (`r f(mejor_om("serie1", 1)$RMSE, 3)`) y Holt-Winters aditivo en $h=12$ (`r f(mejor_om("serie1", config$serie1$H)$RMSE, 3)`). Ambos superan ampliamente al ingenuo estacional, lo que muestra el valor de representar conjuntamente tendencia y estacionalidad.
 - **Serie 2.** SES encabeza $h=1$ con RMSE `r f(mejor_om("serie2", 1)$RMSE, 3)`, mientras la media simple encabeza $h=7$ con `r f(mejor_om("serie2", config$serie2$H)$RMSE, 3)`. La comparación queda restringida a métodos no estacionales, coherentes con el patrón observado.
 - **Serie 3.** Holt presenta el menor RMSE a un paso (`r f(mejor_om("serie3", 1)$RMSE, 3)`) y la tendencia cuadrática en $h=21$ (`r f(mejor_om("serie3", config$serie3$H)$RMSE, 3)`). La ventaja de las tendencias en el horizonte largo es marcada frente al ingenuo, aunque la decisión definitiva todavía debe pasar por la validación reservada para 6(d).
+
+## 6(d) Validación de los ganadores
+
+El ganador de cada serie es el método con menor RMSE en $h=1$. La validación usa exclusivamente sus errores de origen móvil a un paso, $e_{o,1}=y_{o+1}-\hat y_{o+1\mid o}$; no usa los residuos internos del ajuste. Los ganadores sometidos a diagnóstico son:
+
+```{r}
+#| label: ganadores-h1
+#| echo: true
+ganadores_h1 |>
+  select(serie, metodo, n_errores, RMSE, rmse_referente, mejora_rmse_pct) |>
+  knitr::kable(
+    col.names = c("Serie", "Ganador", "Errores", "RMSE", "RMSE referente",
+                  "Mejora RMSE (%)"),
+    digits = 3
+  )
+```
+
+### Errores en el tiempo y correlogramas
+
+Los gráficos temporales permiten detectar cambios de nivel, dispersión o rachas. En los correlogramas, la banda azul es $\pm1.96/\sqrt{n_e}$ y se calcula separadamente con los `r vg(tabla_dependencia_ganadores, "serie1", "n")`, `r vg(tabla_dependencia_ganadores, "serie2", "n")` y `r vg(tabla_dependencia_ganadores, "serie3", "n")` errores disponibles. La banda roja de Bartlett se presenta como referencia adicional para la ACF.
+
+**Serie 1: tendencia con ficticias de suma cero**
+
+![](../figs/serie1-ganador-errores-tiempo.png){width=48%}
+![](../figs/serie1-ganador-correlograma-errores.png){width=48%}
+
+**Serie 2: suavizamiento exponencial simple**
+
+![](../figs/serie2-ganador-errores-tiempo.png){width=48%}
+![](../figs/serie2-ganador-correlograma-errores.png){width=48%}
+
+**Serie 3: Holt**
+
+![](../figs/serie3-ganador-errores-tiempo.png){width=48%}
+![](../figs/serie3-ganador-correlograma-errores.png){width=48%}
+
+### Prueba t de media cero
+
+Para cada ganador se contrasta
+$$H_0:\mu_e=0\qquad\text{contra}\qquad H_1:\mu_e\ne0.$$
+El estadístico es
+$$t=\frac{\bar e}{s_e/\sqrt{n_e}}\sim t_{n_e-1}\quad\text{bajo }H_0.$$
+Al 5 % se rechaza $H_0$ cuando $|t|>t_{0.975;n_e-1}$; el valor crítico se calcula para el tamaño de cada serie y aparece en la tabla junto al estadístico observado, el valor p y la decisión.
+
+```{r}
+#| label: media-cero-ganadores
+#| echo: true
+tabla_media_ganadores |>
+  select(serie, metodo, n, media, error_estandar, t, gl,
+         valor_critico, valor_p, decision) |>
+  knitr::kable(
+    col.names = c("Serie", "Ganador", "n", "Media", "EE", "t", "gl",
+                  "Crítico", "Valor p", "Decisión"),
+    digits = 4
+  )
+```
+
+En ninguna serie se rechaza $H_0$: los valores p son `r vp(vg(tabla_media_ganadores, "serie1", "valor_p"))`, `r vp(vg(tabla_media_ganadores, "serie2", "valor_p"))` y `r vp(vg(tabla_media_ganadores, "serie3", "valor_p"))`. Por tanto, los errores no muestran sesgo medio estadísticamente detectable; esto significa que los ganadores no tienden sistemáticamente a pronosticar por encima o por debajo de lo observado.
+
+### Prueba de Ljung-Box
+
+Para cada ganador se contrasta
+$$H_0:\rho_1=\cdots=\rho_m=0\qquad\text{contra}\qquad
+H_1:\text{alguna }\rho_h\ne0.$$
+Se usa $m=\min\{\lfloor n_e/4\rfloor,24\}$ y
+$$Q_m=n_e(n_e+2)\sum_{h=1}^{m}\frac{r_h^2}{n_e-h}\sim\chi_m^2
+\quad\text{bajo }H_0.$$
+Los grados de libertad son $m$: no se descuentan parámetros porque se están examinando errores de pronóstico fuera de muestra. Al 5 % se rechaza cuando $Q_m>\chi^2_{0.95;m}$. La tabla incluye hipótesis mediante $m$, estadístico observado, distribución y grados de libertad, valor crítico, valor p y decisión; además registra los rezagos que cruzan individualmente la banda del correlograma.
+
+```{r}
+#| label: dependencia-ganadores
+#| echo: true
+tabla_dependencia_ganadores |>
+  select(serie, metodo, n, m, banda, rezagos_fuera, Q, gl,
+         valor_critico, valor_p, decision) |>
+  knitr::kable(
+    col.names = c("Serie", "Ganador", "n", "m", "Banda", "Rezagos fuera",
+                  "Q", "gl", "Crítico", "Valor p", "Decisión"),
+    digits = 4
+  )
+```
+
+No se rechaza ausencia conjunta de autocorrelación en ninguna serie. En las series 2 y 3 ningún rezago cruza siquiera la banda individual. En la serie 1 aparece una señal aislada en el rezago 6, compatible con una oscilación semestral débil que la tendencia con efectos mensuales fijos no reproduce completamente; sin embargo, Ljung-Box queda apenas por debajo de la región de rechazo ($Q=`r f(vg(tabla_dependencia_ganadores, "serie1", "Q"), 3)`$ frente a `r f(vg(tabla_dependencia_ganadores, "serie1", "valor_critico"), 3)`$, valor p `r vp(vg(tabla_dependencia_ganadores, "serie1", "valor_p"))`), por lo que no se concluye que permanezca dependencia conjunta al 5 %.
+
+### Prueba de Jarque-Bera
+
+La normalidad se contrasta mediante
+$$H_0:S=0\text{ y }K=3\qquad\text{contra}\qquad
+H_1:S\ne0\text{ o }K\ne3,$$
+con
+$$JB=\frac{n_e}{6}\left[S^2+\frac{(K-3)^2}{4}\right]\sim\chi_2^2
+\quad\text{bajo }H_0.$$
+Al 5 % se rechaza cuando $JB>\chi^2_{0.95;2}=5.991$. La tabla presenta el estadístico observado, sus dos grados de libertad, valor crítico, valor p, decisión y las dos características muestrales que originan la prueba.
+
+```{r}
+#| label: normalidad-ganadores
+#| echo: true
+tabla_normalidad_ganadores |>
+  select(serie, metodo, JB, gl, valor_critico, valor_p,
+         decision, asimetria, curtosis) |>
+  knitr::kable(
+    col.names = c("Serie", "Ganador", "JB", "gl", "Crítico", "Valor p",
+                  "Decisión", "Asimetría", "Curtosis"),
+    digits = 4
+  )
+```
+
+Jarque-Bera no rechaza normalidad para ninguno de los tres ganadores. Los errores son compatibles con asimetría cero y curtosis tres al 5 %, sin que “no rechazar” constituya una demostración de normalidad exacta.
+
+### Durbin-Watson
+
+Como diagnóstico adicional se calcula
+$$d=\frac{\sum_{i=2}^{n_e}(e_i-e_{i-1})^2}{\sum_{i=1}^{n_e}e_i^2}
+\approx2(1-r_1).$$
+No se usa como una prueba separada: un valor próximo a 2 es compatible con ausencia de autocorrelación de primer orden, uno menor que 2 sugiere dependencia positiva y uno mayor que 2, negativa.
+
+```{r}
+#| label: dw-ganadores
+#| echo: true
+tabla_dw_ganadores |>
+  select(serie, metodo, r1, DW, aproximacion_DW) |>
+  knitr::kable(
+    col.names = c("Serie", "Ganador", "r1", "DW", "2(1-r1)"),
+    digits = 4
+  )
+```
+
+SES y Holt presentan valores muy cercanos a 2, coherentes con sus correlogramas y con Ljung-Box. En la serie 1, $DW=`r f(vg(tabla_dw_ganadores, "serie1", "DW"), 3)`$ sugiere una dependencia negativa leve de primer orden, pero no suficiente para producir rechazo conjunto. En suma, los tres ganadores superan la validación exigida en $h=1$; la señal semestral aislada de la serie 1 debe conservarse como limitación del modelo.
 
 # Bloques de verificación
 
