@@ -562,7 +562,16 @@ tabla_dependencia_regresion |>
 
 ### Normalidad residual
 
-Jarque-Bera contrasta $H_0$: asimetría cero y curtosis tres, contra el incumplimiento conjunto de ambas condiciones. Bajo $H_0$, $JB\sim\chi_2^2$ y la región de rechazo al 5 % es $JB>5.991$. La normalidad es instrumental para inferencia e intervalos; no sustituye la condición sustantiva de residuos sin autocorrelación.
+La **prueba de Jarque-Bera** examina conjuntamente la asimetría y la curtosis de los residuos. Sus hipótesis son
+$$H_0:S=0\text{ y }K=3\quad\text{(compatibilidad con normalidad)}$$
+$$H_1:S\ne0\text{ o }K\ne3\quad\text{(incumplimiento de al menos una condición)}.$$
+Si $m_j=n^{-1}\sum_{t=1}^{n}(e_t-\bar e)^j$, la asimetría y la curtosis muestrales son
+$$S=\frac{m_3}{m_2^{3/2}},\qquad K=\frac{m_4}{m_2^2},$$
+y el estadístico es
+$$JB=\frac{n}{6}\left[S^2+\frac{(K-3)^2}{4}\right].$$
+Bajo $H_0$ y en muestras grandes, $JB\sim\chi_2^2$. Al 5 %, se rechaza la normalidad si $JB>\chi^2_{0.95;2}=5.991$ o, equivalentemente, si el valor p es menor que 0.05. La tabla presenta las hipótesis mediante las columnas observadas de asimetría y curtosis, el estadístico, sus dos grados de libertad, el valor crítico, el valor p y la decisión.
+
+No rechazar $H_0$ no demuestra que los residuos sean exactamente normales; significa que estas dos características muestrales no aportan evidencia suficiente contra la normalidad. Además, la normalidad es instrumental para inferencia e intervalos y no sustituye la condición sustantiva de residuos sin autocorrelación.
 
 ```{r}
 #| label: diagnostico-normalidad-regresiones
