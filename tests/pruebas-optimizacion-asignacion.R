@@ -35,6 +35,8 @@ asignacion <- definir_asignacion_metodos(catalogo)
 stopifnot(
   length(catalogo) == 13L,
   nrow(asignacion) == 39L,
+  all(!is.na(asignacion$evidencia) & nzchar(asignacion$evidencia)),
+  length(unique(asignacion$evidencia)) == 39L,
   sum(asignacion$decision) == 15L,
   identical(
     asignacion$metodo_id[asignacion$serie == "serie1" & asignacion$decision],

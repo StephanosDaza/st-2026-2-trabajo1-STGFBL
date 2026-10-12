@@ -235,24 +235,69 @@ definir_asignacion_metodos <- function(catalogo) {
     serie2 = "ingenuo",
     serie3 = "ingenuo"
   )
-  evidencia <- c(
-    serie1 = paste(
-      "Tendencia creciente y estacionalidad mensual s=12;",
-      "se restringe la comparacion a metodos que representan estacionalidad.",
-      "La amplitud es aditiva (correlacion media-desviacion 0.014)."
+  evidencia <- list(
+    serie1 = c(
+      media = "No representa la tendencia creciente ni la estacionalidad mensual s=12.",
+      ingenuo = "No representa la estacionalidad mensual ni el crecimiento entre anos.",
+      ingenuo_estacional = "Referente: reutiliza el mismo mes del ano anterior y respeta s=12.",
+      mm = "Suaviza el nivel, pero no produce un patron estacional mensual futuro.",
+      ses = "Modela nivel local, pero omite tendencia y estacionalidad mensual.",
+      dmm = "Representa tendencia local, pero no la estacionalidad mensual observada.",
+      tendencia_lineal = "Representa crecimiento, pero deja sin modelar las diferencias mensuales.",
+      tendencia_cuadratica = "Permite curvatura, pero deja sin modelar las diferencias mensuales.",
+      tendencia_exponencial = "Permite crecimiento proporcional, pero omite la estacionalidad mensual.",
+      tendencia_estacional = "Aplicado: combina tendencia con efectos mensuales de suma cero.",
+      holt = "Representa nivel y tendencia, pero no la estacionalidad mensual s=12.",
+      hw_aditivo = paste(
+        "Aplicado: representa tendencia y estacionalidad aditiva;",
+        "la correlacion media-desviacion es 0.014."
+      ),
+      hw_multiplicativo = paste(
+        "Contraste: supone amplitud proporcional al nivel, contradicha por",
+        "la correlacion media-desviacion de 0.014."
+      )
     ),
-    serie2 = paste(
-      "Nivel estable y dependencia local; el rango de medias por dia es 0.691 MWh",
-      "frente a una desviacion de 4.741 MWh, sin evidencia semanal."
+    serie2 = c(
+      media = "Aplicado: el nivel es estable y sirve como referencia de largo plazo.",
+      ingenuo = "Referente: aprovecha la persistencia diaria y la dependencia local observada.",
+      ingenuo_estacional = paste(
+        "No aplicado: las medias por dia solo abarcan 0.691 MWh frente a",
+        "una desviacion de 4.741 MWh; no hay evidencia semanal."
+      ),
+      mm = "Aplicado: suaviza el nivel estable y aprovecha la dependencia de corto plazo.",
+      ses = "Aplicado: actualiza dinamicamente el nivel sin imponer tendencia o estacionalidad.",
+      dmm = "No aplicado: presupone tendencia local y la serie oscila alrededor de un nivel estable.",
+      tendencia_lineal = "No aplicada: el grafico y las medias por bloque no sostienen tendencia lineal.",
+      tendencia_cuadratica = "No aplicada: no hay tendencia ni curvatura sistematica en el periodo.",
+      tendencia_exponencial = "No aplicada: no hay crecimiento proporcional sostenido.",
+      tendencia_estacional = "No aplicada: no hay tendencia ni efectos semanales materiales.",
+      holt = "No aplicado: incorpora una pendiente que el diagnostico de nivel estable no sostiene.",
+      hw_aditivo = "No aplicado: no hay tendencia ni estacionalidad semanal material.",
+      hw_multiplicativo = "No aplicado: no hay tendencia ni amplitud estacional proporcional al nivel."
     ),
-    serie3 = paste(
-      "Tendencia creciente sin estacionalidad material; la amplitud estacional estimada es 5.421",
-      "y la desviacion residual 5.772 miles de usuarios."
+    serie3 = c(
+      media = "No aplicada: un nivel constante no representa el crecimiento mensual sostenido.",
+      ingenuo = "Referente: proyecta el ultimo nivel sin imponer una forma de tendencia.",
+      ingenuo_estacional = "No aplicado: no se encontro estacionalidad mensual material.",
+      mm = "No aplicada: suaviza el nivel, pero sus pronosticos no prolongan adecuadamente la tendencia.",
+      ses = "No aplicado: modela nivel local sin una pendiente explicita.",
+      dmm = "Aplicada: incorpora una tendencia local mediante dos medias moviles.",
+      tendencia_lineal = "Aplicada: el crecimiento observado es aproximadamente lineal.",
+      tendencia_cuadratica = "Aplicada: contrasta si existe curvatura adicional en el crecimiento.",
+      tendencia_exponencial = "Aplicada: contrasta una tasa proporcional de crecimiento.",
+      tendencia_estacional = paste(
+        "Contraste: agrega efectos mensuales aunque su amplitud 5.421 es",
+        "menor que la desviacion residual 5.772."
+      ),
+      holt = "Aplicado: actualiza nivel y pendiente para una serie con tendencia no estacional.",
+      hw_aditivo = "No aplicado: introduce estacionalidad aditiva que el diagnostico no sostiene.",
+      hw_multiplicativo = "No aplicado: introduce estacionalidad proporcional sin evidencia material."
     )
   )
 
   filas <- lapply(names(aplicados), function(serie) {
     ids <- names(catalogo)
+    evidencia_serie <- unname(evidencia[[serie]][ids])
     rol <- ifelse(ids %in% contrastes[[serie]], "Contraste",
                   ifelse(ids == referentes[[serie]], "Referente",
                          ifelse(ids %in% aplicados[[serie]], "Aplicado", "No aplicado")))
@@ -262,10 +307,13 @@ definir_asignacion_metodos <- function(catalogo) {
       metodo = vapply(catalogo, `[[`, character(1), "nombre"),
       decision = rol != "No aplicado",
       rol = rol,
-      evidencia = unname(evidencia[serie])
+      evidencia = evidencia_serie
     )
   })
   tabla <- do.call(rbind, filas)
+  if (anyNA(tabla$evidencia) || any(!nzchar(tabla$evidencia))) {
+    stop("Cada combinacion metodo-serie debe tener evidencia especifica.", call. = FALSE)
+  }
   if (any(!vapply(names(catalogo), function(id) {
     any(tabla$metodo_id == id & tabla$decision)
   }, logical(1)))) {

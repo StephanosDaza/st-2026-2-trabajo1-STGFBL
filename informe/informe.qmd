@@ -458,14 +458,23 @@ tabla_asignacion |>
   )
 ```
 
-La evidencia que gobierna la asignación es:
+La evidencia que gobierna cada decisión se presenta por combinación método-serie. Así se distingue si el método representa el patrón diagnosticado, si omite una estructura necesaria o si introduce deliberadamente un supuesto usado como contraste:
 
 ```{r}
 #| label: evidencia-asignacion
 #| echo: true
+#| results: asis
 tabla_asignacion |>
-  distinct(serie, evidencia) |>
-  knitr::kable(col.names = c("Serie", "Evidencia"))
+  select(serie, metodo, rol, evidencia) |>
+  group_split(serie) |>
+  purrr::walk(function(tb) {
+    cat("\n**", unique(tb$serie), "**\n\n", sep = "")
+    print(knitr::kable(
+      select(tb, metodo, rol, evidencia),
+      col.names = c("Método", "Decisión", "Evidencia")
+    ))
+    cat("\n")
+  })
 ```
 
 Con esta distribución, los trece métodos se aplican al menos una vez. Las series 1 y 3 conservan un contraste estructural; en la serie 2 se omite el ingenuo estacional porque no existe evidencia de estacionalidad semanal. Los parámetros seleccionados en el tramo de estimación son:
