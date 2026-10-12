@@ -523,9 +523,17 @@ En la serie 1 la pendiente es positiva y todos los efectos estacionales estimado
 
 ### Dependencia residual
 
-Para cada regresión se contrasta
+La tabla reúne tres diagnósticos complementarios. El primero es el **contraste individual de autocorrelación** en el rezago 1:
+$$H_0:\rho_1=0 \qquad\text{contra}\qquad H_1:\rho_1\ne0.$$
+Bajo ruido blanco, $r_1\approx N(0,1/n)$; al 5 % se rechaza $H_0$ cuando $|r_1|>1.96/\sqrt{n}$. Las columnas $r_1$ y *Banda* contienen el valor observado y ese límite bilateral. El correlograma extiende la misma comparación a cada rezago, pero debe leerse junto con un contraste conjunto para no multiplicar decisiones aisladas.
+
+El segundo diagnóstico es la **prueba conjunta de Ljung-Box**. Para cada regresión se contrasta
 $$H_0:\rho_1=\cdots=\rho_m=0 \qquad\text{contra}\qquad H_1:\text{alguna }\rho_h\ne0.$$
 El estadístico es $Q_m=n(n+2)\sum_{h=1}^m r_h^2/(n-h)$ y se refiere a $\chi_m^2$: los coeficientes de regresores deterministas no se descuentan de los grados de libertad. Se usa $m=\min\{\lfloor n/4\rfloor,24\}=24$. La tabla contiene los seis elementos de la prueba, además de $r_1$ y Durbin-Watson.
+
+El tercero es el **estadístico de Durbin-Watson**,
+$$d=\frac{\sum_{t=2}^{n}(e_t-e_{t-1})^2}{\sum_{t=1}^{n}e_t^2}\approx2(1-r_1).$$
+Su rango es de 0 a 4. Un valor cercano a 2 es compatible con ausencia de autocorrelación de primer orden; $d<2$ indica autocorrelación positiva y $d>2$, negativa. Aquí se usa como diagnóstico, no como una prueba con región de rechazo: las columnas *DW* y $2(1-r_1)$ permiten verificar tanto su lectura como la aproximación.
 
 ```{r}
 #| label: diagnostico-dependencia-regresiones

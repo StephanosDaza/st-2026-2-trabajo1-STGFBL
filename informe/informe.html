@@ -3314,7 +3314,7 @@ window.Quarto = {
     <div>
     <div class="quarto-title-meta-heading">Fecha de publicación</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">11 de octubre de 2026</p>
+      <p class="date">12 de octubre de 2026</p>
     </div>
   </div>
   
@@ -5088,7 +5088,9 @@ window.Quarto = {
 <p>En la serie 1 la pendiente es positiva y todos los efectos estacionales estimados en la codificación de suma cero resultan significativos al 5 %. En la serie 3, el término cuadrático no es significativo (<span class="math inline">\(p=\)</span> <span class="math inline">\(= 0.5621\)</span>), y ninguno de los efectos estacionales del modelo de contraste es significativo. Esto coincide con el diagnóstico previo: crecimiento aproximadamente lineal y ausencia de estacionalidad material.</p>
 <section id="dependencia-residual" class="level3">
 <h3 class="anchored" data-anchor-id="dependencia-residual">Dependencia residual</h3>
-<p>Para cada regresión se contrasta <span class="math display">\[H_0:\rho_1=\cdots=\rho_m=0 \qquad\text{contra}\qquad H_1:\text{alguna }\rho_h\ne0.\]</span> El estadístico es <span class="math inline">\(Q_m=n(n+2)\sum_{h=1}^m r_h^2/(n-h)\)</span> y se refiere a <span class="math inline">\(\chi_m^2\)</span>: los coeficientes de regresores deterministas no se descuentan de los grados de libertad. Se usa <span class="math inline">\(m=\min\{\lfloor n/4\rfloor,24\}=24\)</span>. La tabla contiene los seis elementos de la prueba, además de <span class="math inline">\(r_1\)</span> y Durbin-Watson.</p>
+<p>La tabla reúne tres diagnósticos complementarios. El primero es el <strong>contraste individual de autocorrelación</strong> en el rezago 1: <span class="math display">\[H_0:\rho_1=0 \qquad\text{contra}\qquad H_1:\rho_1\ne0.\]</span> Bajo ruido blanco, <span class="math inline">\(r_1\approx N(0,1/n)\)</span>; al 5 % se rechaza <span class="math inline">\(H_0\)</span> cuando <span class="math inline">\(|r_1|&gt;1.96/\sqrt{n}\)</span>. Las columnas <span class="math inline">\(r_1\)</span> y <em>Banda</em> contienen el valor observado y ese límite bilateral. El correlograma extiende la misma comparación a cada rezago, pero debe leerse junto con un contraste conjunto para no multiplicar decisiones aisladas.</p>
+<p>El segundo diagnóstico es la <strong>prueba conjunta de Ljung-Box</strong>. Para cada regresión se contrasta <span class="math display">\[H_0:\rho_1=\cdots=\rho_m=0 \qquad\text{contra}\qquad H_1:\text{alguna }\rho_h\ne0.\]</span> El estadístico es <span class="math inline">\(Q_m=n(n+2)\sum_{h=1}^m r_h^2/(n-h)\)</span> y se refiere a <span class="math inline">\(\chi_m^2\)</span>: los coeficientes de regresores deterministas no se descuentan de los grados de libertad. Se usa <span class="math inline">\(m=\min\{\lfloor n/4\rfloor,24\}=24\)</span>. La tabla contiene los seis elementos de la prueba, además de <span class="math inline">\(r_1\)</span> y Durbin-Watson.</p>
+<p>El tercero es el <strong>estadístico de Durbin-Watson</strong>, <span class="math display">\[d=\frac{\sum_{t=2}^{n}(e_t-e_{t-1})^2}{\sum_{t=1}^{n}e_t^2}\approx2(1-r_1).\]</span> Su rango es de 0 a 4. Un valor cercano a 2 es compatible con ausencia de autocorrelación de primer orden; <span class="math inline">\(d&lt;2\)</span> indica autocorrelación positiva y <span class="math inline">\(d&gt;2\)</span>, negativa. Aquí se usa como diagnóstico, no como una prueba con región de rechazo: las columnas <em>DW</em> y <span class="math inline">\(2(1-r_1)\)</span> permiten verificar tanto su lectura como la aproximación.</p>
 <div class="cell">
 <details class="code-fold">
 <summary>Ver código</summary>
