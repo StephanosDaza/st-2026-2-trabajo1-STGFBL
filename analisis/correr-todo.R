@@ -603,11 +603,14 @@ if (any(vapply(names(config), function(k) {
 cat("\n>>> PRONOSTICOS FINALES Y BANDAS HEURISTICAS\n")
 print(as.data.frame(tabla_pronosticos_finales), digits = 5)
 
+# PRONOSTICOS PARA LAS DECISIONES DEL PUNTO 8
+
+source("analisis/pronosticos-decision.R")
+
+
 # BLOQUES DE VERIFICACION
 
-cat("\n\n====================================================================\n")
-cat("BLOQUES DE VERIFICACION\n")
-cat("====================================================================\n")
+cat("\n>>> BLOQUES DE VERIFICACION\n")
 
 y_v <- resultados$serie1$datos$y
 cat("- diferenciar(d = 1) vs diff():", max(abs(diferenciar(y_v, d = 1) - diff(y_v))), "\n")
@@ -624,7 +627,15 @@ for (k in names(config)) {
   cat("-", k, "| ACF vs acf():", dif_acf, "| PACF Durbin-Levinson vs pacf():", dif_pacf,
       "| Menor que 1e-10:", dif_pacf < 1e-10, "\n")
 }
-cat("====================================================================\n")
 
-# Pronosticos para las decisiones del punto 8
-source("analisis/pronosticos-decision.R")
+y3 <- resultados$serie3$datos$y
+b_propio <- ajustar_tendencia(y3, "lineal")$parametros$coeficientes$estimacion
+b_lm <- unname(coef(lm(y3 ~ seq_along(y3))))
+cat("- ajustar_tendencia(lineal) vs lm():", max(abs(b_propio - b_lm)), "\n")
+
+for (archivo in list.files("tests", pattern = "\\.R$", full.names = TRUE)) {
+  local(source(archivo, local = TRUE))
+  cat("-", basename(archivo), ": todas las pruebas pasaron\n")
+}
+
+writeLines(capture.output(sessionInfo()), "sesion-info.txt")

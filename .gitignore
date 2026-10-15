@@ -8,3 +8,5 @@ informe/*_cache/
 
 /.quarto/
 **/*.quarto_ipynb
+
+salida_consola.txt

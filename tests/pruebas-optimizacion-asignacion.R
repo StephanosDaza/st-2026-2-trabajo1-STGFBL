@@ -123,8 +123,7 @@ stopifnot(
   )),
   inherits(graficar_errores(errores_om[errores_om$horizonte == 1L, ]), "ggplot"),
   identical(final_prueba$tabla$pronostico, rep(10, 3)),
-  identical(final_prueba$tabla$fecha,
-            as.Date(c("2026-01-11", "2026-01-12", "2026-01-13"))),
+  identical(format(final_prueba$tabla$fecha), c("2026-01-11", "2026-01-12", "2026-01-13")),
   all(is.finite(final_prueba$tabla$limite_inferior)),
   inherits(graficar_pronostico_final(datos_prueba, final_prueba$tabla), "ggplot")
 )
