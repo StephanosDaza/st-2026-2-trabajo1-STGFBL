@@ -1,0 +1,34 @@
+---
+title: "Nota para los interesados"
+subtitle: "Energía del Altiplano S.A. E.S.P. — Equipo STGFBL"
+format:
+  html:
+    toc: false
+    embed-resources: true
+---
+
+## 1. Contratación de energía durante 2026
+
+La demanda mensual presenta variaciones importantes entre los meses del año. Para planificar las compras de 2026 se recomienda utilizar las estimaciones mensuales del modelo que obtuvo mejores resultados en la evaluación anual, con un error aproximado de **10,1 GWh**.
+
+Contratar menos energía de la necesaria implica un sobrecosto del 35 %, mientras que contratar un excedente genera una pérdida del 20 %. Por ello, es importante revisar las cantidades antes de firmar los contratos y considerar un margen de seguridad económicamente justificado.
+
+![](../figs/serie1-pronostico-final.png){width=55%}
+
+## 2. Contratación semanal de la estación de bombeo
+
+La estación mantiene un consumo que fluctúa alrededor de un nivel relativamente estable. Para la compra semanal, el método basado en el promedio presentó un error aproximado de **5,77 MWh** a siete días.
+
+Por cada MWh contratado de menos, la empresa afronta un costo adicional de **360.000 COP**. Si contrata un MWh de más, pierde **170.000 COP**. La planificación debe considerar esta diferencia para evitar compras de emergencia.
+
+![](../figs/serie2-pronostico-final.png){width=55%}
+
+## 3. Ampliación de la red eléctrica
+
+El número de usuarios conectados continúa creciendo. La red puede atender hasta **450 mil usuarios**, y el nuevo transformador requiere una inversión de **6.800 millones de COP** y nueve meses de instalación.
+
+La evaluación de largo plazo presentó un error aproximado de **7,53 mil usuarios**. Se recomienda determinar con anticipación el mes en que podría superarse la capacidad y programar la compra teniendo en cuenta los nueve meses necesarios para instalar el equipo.
+
+![](../figs/serie3-pronostico-final.png){width=55%}
+
+**Alcance de las recomendaciones.** Estas estimaciones orientan la planificación, pero no garantizan las cantidades que finalmente se consumirán ni la fecha exacta en que se alcanzará el límite de capacidad. Cambios en la demanda, la operación o el crecimiento regional pueden modificar los resultados.

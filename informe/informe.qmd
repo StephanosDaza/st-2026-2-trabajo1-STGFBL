@@ -852,3 +852,179 @@ Holt prolonga el crecimiento reciente desde `r f(tabla_pronosticos_finales$prono
 inicio <- grep("BLOQUES DE VERIFICACION", salida)[1] - 1
 cat(salida[inicio:length(salida)], sep = "\n")
 ```
+
+# 7. Conclusión técnica
+
+En esta sección se sintetizan los principales resultados del análisis de las tres series, 
+considerando sus patrones temporales, las transformaciones seleccionadas y el desempeño de los métodos de pronóstico.
+ La comparación se realiza tanto a un paso como al horizonte requerido por cada decisión, tomando como referencia el error RMSE obtenido mediante origen móvil.
+
+```{r}
+#| label: resumen-conclusion-tecnica
+#| echo: true
+
+mejor_om <- function(serie, h) {
+  dplyr::slice_min(
+    dplyr::filter(tabla_origen_movil,
+                  .data$serie == serie,
+                  horizonte == h),
+    RMSE, n = 1
+  )
+}
+
+tabla_resumen_conclusion <- tabla_origen_movil |>
+  dplyr::group_by(serie, horizonte) |>
+  dplyr::arrange(RMSE, .by_group = TRUE) |>
+  dplyr::slice_head(n = 1) |>
+  dplyr::ungroup()
+```
+
+### Serie 1. Demanda mensual de energía
+
+La demanda mensual presenta una tendencia creciente acompañada de un patrón estacional anual de período $s=12$. 
+La transformación seleccionada, $(1-B^{12})Y_t$, permite eliminar la componente estacional persistente y analizar
+las variaciones interanuales, obteniendo una serie plausiblemente estacionaria. En la evaluación por origen móvil, 
+la tendencia con ficticias estacionales de suma cero presenta el menor error a un paso, con un RMSE de `r f(mejor_om("serie1", 1)$RMSE, 3)` GWh, 
+frente a `r f(mejor_om("serie1", 1)$rmse_referente, 3)` GWh del ingenuo estacional, equivalente a una reducción del `r f(mejor_om("serie1", 1)$mejora_rmse_pct, 2)` %.
+Sin embargo, al considerar el horizonte de doce meses, Holt-Winters aditivo obtiene el menor RMSE, de `r f(mejor_om("serie1", config$serie1$H)$RMSE, 3)` GWh, con una mejora del `r f(mejor_om("serie1", config$serie1$H)$mejora_rmse_pct, 2)` % frente al referente. 
+Esta diferencia indica que la representación conjunta de tendencia y estacionalidad resulta importante en ambos horizontes, aunque la actualización de los componentes mediante suavizamiento exponencial ofrece un mejor desempeño empírico a doce meses.
+En cuanto a la validación, los errores del ganador a un paso no presentan evidencia suficiente de autocorrelación conjunta al 5 %, con un valor p de `r f(vg(tabla_dependencia_ganadores, "serie1", "valor_p"), 4)`. No obstante, se identifica una señal aislada en el rezago 6,
+lo que sugiere una posible oscilación semestral débil que el modelo no captura completamente. Por tanto, aunque el método seleccionado reproduce adecuadamente la estructura principal de la demanda, esta dependencia residual debe considerarse al interpretar sus pronósticos.
+
+La tendencia con ficticias estima un incremento de aproximadamente 1.97 GWh mensuales, condicionado a los efectos estacionales. Entre estos se destacan marzo, con una desviación positiva de 43.7 GWh,
+y junio, con una desviación negativa de 25.8 GWh, lo que confirma la importancia de representar explícitamente las diferencias entre meses.
+
+Serie 2. Consumo diario de energía
+El consumo diario de la estación de bombeo presenta fluctuaciones alrededor de un nivel relativamente estable, sin evidencia suficiente de tendencia o estacionalidad semanal persistente.
+Por esta razón, no se considera necesario aplicar diferencias, ya que introducirlas sobre una serie plausiblemente estacionaria podría aumentar innecesariamente la variabilidad.
+En la evaluación por origen móvil, el suavizamiento exponencial simple, con $\alpha=0.8$, obtiene el menor RMSE a un día, de r f(mejor_om("serie2", 1)$RMSE, 2) MWh.
+El valor elevado de $\alpha$ indica que las observaciones recientes reciben mayor peso, permitiendo al método adaptarse rápidamente a cambios del consumo.
+En cambio, para el horizonte de siete días, la media simple alcanza el menor RMSE, de r f(mejor_om("serie2", 7)$RMSE, 2) MWh.
+Este resultado sugiere que, a mayor horizonte, la estimación del nivel promedio resulta más estable que la actualización basada principalmente en el último dato.
+La comparación con el referente ingenuo muestra reducciones del RMSE de r f(mejor_om("serie2", 1)$mejora_rmse_pct, 2) % y r f(mejor_om("serie2", 7)$mejora_rmse_pct, 2) % a uno y siete días, respectivamente. 
+Finalmente, la validación del ganador a un paso no identifica rezagos de autocorrelación fuera de la banda individual ni evidencia suficiente de dependencia conjunta al 5 %, por lo que no se detecta una estructura 
+temporal residual sistemática que pueda aprovecharse mediante los métodos considerados.
+
+
+Serie 3. Usuarios conectados a la red
+
+
+La serie de usuarios conectados presenta una tendencia creciente, sin evidencia de una componente estacional anual relevante.
+La transformación $(1-B)Y_t$ permite eliminar la tendencia de nivel y obtener una serie plausiblemente estacionaria alrededor del incremento mensual de usuarios. 
+En la evaluación por origen móvil, Holt, con parámetros $\alpha=0.55$ y $\beta=0.05$, alcanza el menor RMSE a un paso, de r f(mejor_om("serie3", 1)$RMSE, 2) miles de usuarios. La actualización relativamente rápida del nivel y gradual de la pendiente permite representar los cambios recientes
+sin introducir variaciones excesivas en la tendencia estimada. Sin embargo, para el horizonte de 21 meses, la tendencia cuadrática obtiene el menor RMSE, de r f(mejor_om("serie3",sin introducir variaciones excesivas en la tendencia estimada. Sin embargo, para el horizonte de 21 meses, la tendencia cuadrática obtiene el menor RMSE, de r f(mejor_om("serie3", 21)$RMSE, 2) miles de usuarios.
+Este resultado indica que una trayectoria con pendiente variable ofrece un mejor ajuste predictivo a largo plazo en los orígenes evaluados, aunque no garantiza que dicha trayectoria se mantenga fuera de la muestra.
+Frente al referente, las mejoras del RMSE son de r f(mejor_om("serie3", 1)$mejora_rmse_pct, 2) % a un mes y r f(mejor_om("serie3", 21)$mejora_rmse_pct, 2) % a veintiún meses.
+La validación del ganador a un paso no identifica rezagos fuera de la banda individual ni evidencia suficiente de autocorrelación conjunta al 5 %, por lo que no se observa una estructura de dependencia residual sistemática. 
+En consecuencia, ambos métodos representan adecuadamente el crecimiento de usuarios en sus respectivos horizontes, pero la extrapolación a 21 meses requiere especial cautela por su relación con decisiones de inversión en infraestructura.
+
+La tendencia cuadrática presenta un coeficiente lineal de aproximadamente 1.58 y uno cuadrático de −0.000422, compatible con una desaceleración leve del crecimiento estimado
+Sin embargo, el término cuadrático no resulta estadísticamente significativo al 5 % con el error estándar robusto. Por tanto, su selección a 21 meses responde al menor error de pronóstico observado y no a evidencia concluyente de una trayectoria de crecimiento cuadrática.
+
+Comparación general
+
+Los resultados muestran que el desempeño de los métodos depende tanto de la estructura temporal de cada serie como del horizonte de pronóstico. En la demanda mensual, la presencia conjunta de tendencia y estacionalidad anual favorece a la tendencia con ficticias a un paso (RMSE de 12.3 GWh)
+y a Holt-Winters aditivo a doce meses (10.1 GWh). En el consumo diario, donde no se identificó una tendencia ni una estacionalidad persistente, SES obtiene el menor error a un día (4.25 MWh), 
+mientras que la media simple resulta más precisa a siete días (5.77 MWh). Por su parte, en los usuarios conectados, el crecimiento sostenido favorece a Holt a un mes (6.94 miles de usuarios), pero la tendencia cuadrática alcanza el menor error a veintiún meses (7.53 miles de usuarios).
+Estas diferencias son coherentes con los supuestos de los métodos: algunos actualizan rápidamente el nivel, otros representan explícitamente la estacionalidad y otros extrapolan una tendencia determinista. 
+Por tanto, no existe un método que resulte superior en todas las series ni en todos los horizontes. La elección debe apoyarse en el diagnóstico de cada proceso y, principalmente, 
+en el error observado sobre orígenes de evaluación comparables. Asimismo, la ausencia de rechazo conjunto de autocorrelación 
+en los errores de los ganadores a un paso indica que estos capturan buena parte de la dependencia temporal identificada, aunque la señal aislada en el rezago 6 de la serie 1 muestra que todavía puede quedar una estructura débil sin representar.
+
+8. Argumentos para los interesados
+Esta sección relaciona los resultados del pronóstico con las decisiones que enfrenta Energía del Altiplano S.A. E.S.P. Se identifican los interesados, sus responsabilidades y las consecuencias de los errores de pronóstico, considerando las condiciones económicas y operativas de cada serie.
+
+8(a) Mapa de interesados
+
+Serie 1. Demanda mensual de energía
+La gerencia comercial es la principal responsable de determinar la cantidad de energía que debe contratarse para cada mes de 2026. Si la demanda supera la cantidad contratada,
+la empresa debe adquirir la energía faltante con un sobrecosto del 35 %. Por el contrario, si contrata más de lo necesario, incurre en una pérdida del 20 % sobre la energía excedente.
+
+La junta directiva debe aprobar la estrategia de contratación y evaluar sus consecuencias financieras.
+Su interés consiste en evitar costos adicionales que puedan comprometer los resultados económicos de la empresa.
+
+La superintendencia supervisa las condiciones de comercialización y los costos que eventualmente se trasladan a las tarifas.
+Por su parte, los usuarios pueden verse afectados por los sobrecostos de una contratación ineficiente.
+
+La diferencia entre los costos de error permite establecer que subestimar la demanda resulta más perjudicial por unidad de energía que sobreestimarla. 
+Sin embargo, como no se proporciona un precio base por GWh, los costos solo pueden expresarse como porcentajes del valor de referencia y no directamente en pesos.
+
+Serie 2. Consumo diario de energía
+
+Serie 2. Consumo diario de energía
+
+La mesa de compras debe contratar cada lunes la energía requerida por la estación de bombeo durante los siete días siguientes. 
+El precio contratado es de 420 COP/kWh, mientras que la energía faltante se compra a 780 COP/kWh y la sobrante se revende a 250 COP/kWh.
+
+En consecuencia, subestimar el consumo genera un costo adicional de 360 COP/kWh, equivalente a 360.000 COP por MWh.
+Por otro lado, sobreestimarlo produce una pérdida de 170 COP/kWh, equivalente a 170.000 COP por MWh. Esto significa que, por una misma cantidad de energía, el costo del déficit es aproximadamente 2,12 veces el costo del excedente.
+
+El jefe de operación utiliza las estimaciones para planificar el funcionamiento de la estación, mientras que la gerencia financiera evalúa los costos de contratación y sus efectos sobre el presupuesto.
+Finalmente, los usuarios de las tres veredas dependen del abastecimiento de agua proporcionado por la estación. Aunque los errores de pronóstico representan principalmente
+un problema de contratación energética, una gestión ineficiente puede afectar los costos de operación del servicio.
+
+Dado que los costos por déficit y excedente son diferentes, minimizar el RMSE no equivale necesariamente a minimizar el costo económico esperado.
+Por ello, la cantidad contratada podría diferir del pronóstico puntual si se dispone de información suficiente sobre la distribución de los errores.
+
+Serie 3. Usuarios conectados a la red
+
+La gerencia de planeación debe determinar si la empresa necesita un nuevo transformador y el momento adecuado para solicitarlo.
+La infraestructura actual tiene capacidad para 450 mil usuarios y una ampliación requiere nueve meses desde la orden de compra hasta su puesta en funcionamiento.
+
+La junta directiva debe autorizar una inversión de 6.800 millones de COP. Una compra anticipada implica inmovilizar capital antes de que la ampliación sea necesaria, 
+mientras que una compra tardía puede dejar a la empresa operando por encima de su capacidad.
+
+El área de operación es responsable de mantener la continuidad del suministro y ejecutar la ampliación. Los usuarios conectados se ven afectados por el riesgo de interrupciones,
+mientras que el regulador supervisa la prestación del servicio y puede imponer sanciones ante incumplimientos.
+
+En este caso, los costos de error no pueden expresarse como una cantidad fija por cada mil usuarios. El riesgo depende principalmente del momento en que se supera el umbral de capacidad y del tiempo necesario para instalar el nuevo transformador.
+Aunque se conoce el valor de la inversión, no se dispone de cifras sobre el costo de las interrupciones, las sanciones o la inmovilización anticipada de capital.
+
+Por tanto, la decisión debe considerar conjuntamente la trayectoria pronosticada, la incertidumbre asociada y el plazo de instalación, en lugar de depender exclusivamente de la precisión promedio del modelo.
+
+8(b) Argumentos para los interesados
+
+Serie 1. Demanda mensual de energía
+Afirmación. La contratación de energía para 2026 debe considerar las diferencias de demanda entre los meses y prestar especial atención al riesgo de contratar menos energía de la necesaria.
+Evidencia. En la evaluación a doce meses, Holt-Winters aditivo obtuvo un RMSE de r f(mejor_om("serie1", 12)$RMSE, 2) GWh, frente a r f(mejor_om("serie1", 12)$rmse_referente, 2) GWh del referente ingenuo estacional. 
+Esto representa una reducción del error del r f(mejor_om("serie1", 12)$mejora_rmse_pct, 2) %. El método incorpora las variaciones estacionales que caracterizan la demanda y actualiza gradualmente sus estimaciones de nivel y tendencia.
+
+Justificación. La demanda no se distribuye uniformemente durante el año, por lo que contratar una cantidad constante para todos los meses podría generar excedentes en unos períodos y déficits en otros. 
+Además, el costo de subestimar la demanda es del 35 %, mientras que el de sobreestimarla es del 20 % sobre el valor de la energía correspondiente. Esto significa que, por una misma cantidad de energía, el déficit tiene un costo 1,75 veces mayor que el excedente. Por tanto, la precisión del pronóstico debe complementarse con una evaluación de los costos de contratación.
+
+Alcance. La recomendación se refiere a los doce meses de 2026 y supone que las condiciones de demanda conservan una estructura comparable con la observada durante el período de análisis.
+Los resultados no garantizan que la demanda real coincida con las cantidades pronosticadas. Cambios importantes en el consumo, las condiciones económicas o el comportamiento estacional podrían modificar las necesidades de contratación.
+
+Objeción. ¿Por qué utilizar Holt-Winters aditivo para planificar el año si la tendencia estacional obtuvo mejores resultados a un mes? Porque los dos métodos fueron evaluados para decisiones con horizontes distintos. A un mes, la tendencia estacional alcanzó un RMSE de r f(mejor_om("serie1", 1)$RMSE, 2) GWh, mientras que a doce meses Holt-Winters aditivo obtuvo el menor error, de r f(mejor_om("serie1", 12)$RMSE, 2) GWh.
+Dado que la contratación debe anticipar los doce meses siguientes, el desempeño a ese horizonte constituye la evidencia más pertinente para la decisión. Esto no implica que Holt-Winters sea superior en cualquier período futuro, sino que presentó el menor error en la evaluación realizada.
+
+Serie 2. Consumo diario de energía
+
+Afirmación. La contratación de energía para los siete días siguientes debe apoyarse en el consumo promedio estimado y considerar que comprar menos energía de la necesaria resulta más costoso que contratar un excedente.
+
+Evidencia. En la evaluación a siete días, la media simple obtuvo un RMSE de r f(mejor_om("serie2", 7)$RMSE, 2) MWh, frente a r f(mejor_om("serie2", 7)$rmse_referente, 2) MWh del referente. Esto representa una mejora del r f(mejor_om("serie2", 7)$mejora_rmse_pct, 2) %. A un día, el suavizamiento exponencial simple, con $\alpha=0.8$, alcanzó un RMSE de r f(mejor_om("serie2", 1)$RMSE, 2) MWh. 
+Estos resultados muestran que utilizar un nivel promedio resulta más preciso para anticipar el consumo a siete días que depender principalmente de las observaciones recientes.
+
+Justificación. El consumo de la estación fluctúa alrededor de un nivel relativamente estable, sin una tendencia o estacionalidad semanal persistente. Por ello, la media simple permite representar el nivel general del consumo sin atribuir demasiada importancia a variaciones transitorias. Sin embargo, el costo adicional de comprar energía faltante es de 360.000 COP por MWh, mientras que la pérdida por energía excedente es de 170.000 COP por MWh. 
+En consecuencia, un déficit de 5 MWh representa un costo adicional de 1.800.000 COP, frente a una pérdida de 850.000 COP si se contrata un excedente de la misma magnitud. Esta diferencia justifica prestar especial atención a los errores por defecto.
+
+Alcance. La recomendación corresponde a los siete días siguientes al origen del pronóstico y supone que el consumo continúa fluctuando alrededor de un nivel comparable al observado. Los resultados pueden cambiar si aparecen modificaciones en los horarios de bombeo, la demanda de agua o las condiciones de operación. El pronóstico permite establecer una referencia para la contratación, pero no garantiza que el consumo diario coincida con la cantidad estimada.
+
+Objeción. ¿Por qué utilizar la media simple si el suavizamiento exponencial simple fue más preciso a un día? Porque la contratación debe cubrir siete días y no únicamente el día siguiente. Aunque SES obtiene un RMSE de r f(mejor_om("serie2", 1)$RMSE, 2) MWh a un paso, la media simple alcanza el menor error a siete días, con r f(mejor_om("serie2", 7)$RMSE, 2) MWh. La elección responde al horizonte de la decisión y a la evaluación realizada sobre los mismos orígenes 
+para cada método. No obstante, debido a la diferencia entre los costos de déficit y excedente, el pronóstico puntual debe entenderse como una referencia y no necesariamente como la cantidad que minimiza el costo esperado de contratación.
+
+Serie 3. Usuarios conectados a la red
+
+Afirmación. La empresa debe planificar la ampliación de su infraestructura antes de alcanzar los 450 mil usuarios, teniendo en cuenta los nueve meses que requiere la instalación del transformador.
+
+Evidencia. En la evaluación a veintiún meses, la tendencia cuadrática obtuvo el menor RMSE, de r f(mejor_om("serie3", 21)$RMSE, 2) miles de usuarios, frente a r f(mejor_om("serie3", 21)$rmse_referente, 2) miles de usuarios del referente. Esto representa una mejora del r f(mejor_om("serie3", 21)$mejora_rmse_pct, 2) %. A un mes, Holt, con parámetros $\alpha=0.55$ y $\beta=0.05$, alcanzó un RMSE de r f(mejor_om("serie3", 1)$RMSE, 2) miles de usuarios. La comparación evidencia 
+que una trayectoria con pendiente variable ofrece una mejor representación predictiva a largo plazo en los orígenes evaluados.
+
+Justificación. La cantidad de usuarios presenta un crecimiento sostenido que aproxima progresivamente la red a su capacidad máxima. Como la instalación del nuevo transformador requiere nueve meses, esperar hasta alcanzar los 450 mil usuarios implicaría iniciar la ampliación cuando la infraestructura ya estaría expuesta a sobrecargas. Por tanto, la decisión debe anticiparse al momento de superar el límite. Esta consideración es especialmente importante porque la inversión necesaria  
+asciende a 6.800 millones de COP, mientras que retrasarla puede ocasionar interrupciones del suministro y sanciones cuyo costo no está cuantificado.
+
+Alcance. La recomendación se apoya en un horizonte de veintiún meses, que permite considerar doce meses para decidir y nueve meses adicionales para instalar el transformador. Su validez depende de que la evolución de usuarios conserve un comportamiento comparable al observado. Cambios importantes en la expansión urbana, las conexiones comerciales o la dinámica regional podrían modificar el momento en que se alcance la capacidad máxima. Además, el error de pronóstico aumenta la incertidumbre sobre la fecha exacta del cruce.
+
+Objeción. ¿Por qué considerar una tendencia cuadrática si Holt presentó mejores resultados a un mes y la curvatura estimada no fue estadísticamente significativa al 5 %? Porque la selección del método se basa en su capacidad de pronóstico para el horizonte de la decisión, no exclusivamente en la significancia de sus coeficientes. Holt obtuvo un RMSE de r f(mejor_om("serie3", 1)$RMSE, 2) miles de usuarios a un mes, mientras que la tendencia cuadrática registró el menor error a veintiún meses, de r f(mejor_om("serie3", 21)$RMSE, 2)
+ miles de usuarios. No obstante, este resultado no demuestra que el crecimiento futuro siga necesariamente una trayectoria cuadrática. Por ello, la decisión de inversión debe considerar tanto la fecha estimada de superación del umbral como la incertidumbre del pronóstico y el tiempo de instalación.
+

@@ -1,0 +1,10 @@
+@page { size: A4 portrait; margin: 12mm 14mm; }
+body { font-family: Arial, Helvetica, sans-serif; color: #172333; font-size: 9.3pt; line-height: 1.25; }
+#quarto-content, main.content, .page-layout-full, .content { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+h1.title { font-size: 17pt; margin: 0 0 2px 0; }
+p.subtitle { font-size: 9.5pt; margin: 0 0 8px 0; }
+h2 { font-size: 11pt; margin: 9px 0 3px 0; padding: 0; }
+p { margin: 3px 0 4px 0; }
+img { display: block; max-height: 115px; max-width: 100%; width: auto; margin: 3px auto 6px; object-fit: contain; }
+figure { margin: 2px 0 5px; }
+@media print { html, body { margin: 0; padding: 0; } header, #quarto-header, footer, #quarto-footer { display: none !important; } h2, figure { break-inside: avoid; } }
