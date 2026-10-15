@@ -5,3 +5,6 @@
 *.Rproj
 informe/informe_files/
 informe/*_cache/
+
+/.quarto/
+**/*.quarto_ipynb
