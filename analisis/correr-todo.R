@@ -626,3 +626,5 @@ for (k in names(config)) {
 }
 cat("====================================================================\n")
 
+# Pronosticos para las decisiones del punto 8
+source("analisis/pronosticos-decision.R")
