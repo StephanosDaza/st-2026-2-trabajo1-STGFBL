@@ -4,13 +4,13 @@ https://github.com/StephanosDaza/st-2026-2-trabajo1-STGFBL — Código del equip
 
 Series de Tiempo, Pregrado en Estadística, UNAL Medellín, 2026-II. Equipo STGFBL.
 
-## Integrantes y lo que hizo cada uno
+## Integrantes y desarrollo del trabajo
 
 - **Esteban Daza Palomino.** Puntos 1 a 5: lectura y fichas de las series, partición en tramos y orígenes, gráficos, decisión sobre la estacionalidad y descomposición clásica, operador de rezago (diferencias, polinomios y raíces) y dependencia y estacionariedad (ACF, PACF, Ljung-Box, bloques y varianza de largo plazo). Secciones 1 a 5 del informe, bloques de verificación y diapositivas de la exposición.
 - **Juan David Garro Arboleda.** Punto 6: los trece métodos de pronóstico, la optimización en el tramo de estimación, las regresiones con error robusto, la evaluación por origen móvil, la validación de los ganadores y el pronóstico final. Pruebas de los métodos en `tests/` y sección 6 del informe.
 - **Sara Jurado Giraldo.** Puntos 7 a 9: conclusión técnica, argumentos para los interesados, nota de una página, pronósticos para las decisiones del punto 8, README y reproducibilidad. Secciones 7 y 8 del informe.
 
-## Qué contiene el repositorio
+## Contenido del repositorio
 
 | Archivo | Contenido | Autor |
 |:---|:---|:---|
@@ -28,9 +28,10 @@ Series de Tiempo, Pregrado en Estadística, UNAL Medellín, 2026-II. Equipo STGF
 | `informe/informe.html` | El informe renderizado | |
 | `informe/nota-interesados.qmd`, `.css`, `.pdf` | Nota de una página para los interesados | Sara Jurado |
 | `informe/serieK-pronostico-decision.csv` | Pronósticos del punto 8, generados por `pronosticos-decision.R` | |
-| `exposicion/STGFBL.pdf` | Diapositivas de la exposición | Equipo |
-| `figs/` | Figuras generadas por `correr-todo.R` y fotos de las demostraciones a mano del punto 4(d) | |
-| `sesion-info.txt` | Salida de `sessionInfo()` de la máquina en la que se cerró la entrega | |
+| `exposicion/STGFBL.pdf` | Diapositivas de la exposición | Esteban Daza |
+| `figs/` | Figuras generadas por `correr-todo.R` | |
+| `figs/demostracion-holt.jpg`, `figs/demostracion-holt-winters.jpg` | Fotos de las demostraciones a mano del punto 4(d) | Esteban Daza |
+| `sesion-info.txt` | Salida de `sessionInfo()` de la máquina en la que se cerró la entrega | Esteban Daza |
 
 ### Archivos reutilizados de la Tarea 1
 
@@ -41,7 +42,7 @@ Series de Tiempo, Pregrado en Estadística, UNAL Medellín, 2026-II. Equipo STGF
 - `R/05-evaluacion.R`: `optimizar()`, `medidas()`, `validar_errores()`, `jarque_bera()` y `durbin_watson()` son de la Tarea 1 de Juan David Garro. Se adaptaron a la evaluación con varios horizontes y se agregaron `origen_movil()`, el diagnóstico de las regresiones y el pronóstico final con bandas. `particion_serie()` se escribió para este trabajo.
 - `R/02-operadores.R` se escribió para este trabajo.
 
-## Cómo se corre
+## Ejecución
 
 Desde la raíz del repositorio, con R 4.3 o posterior y los paquetes `dplyr`, `tidyr`, `purrr`, `tibble`, `readr`, `ggplot2` y `patchwork`:
 
@@ -75,7 +76,7 @@ Los RMSE salen de la evaluación por origen móvil, con los mismos orígenes par
 **Esteban Daza Palomino** usó Claude (Anthropic) en los puntos 1 a 5.
 
 - *Qué se pidió:* revisión de las funciones de la Tarea 1 para reutilizarlas en el trabajo y propuesta de código en R para adaptarlas a lo que pide el enunciado del trabajo. Además se solicitó apoyo en la redacción de las secciones 4 y 5 del informe y en una revisión final del repositorio.
-- *Qué se recibió:* propuestas de código en R a partir de las funciones de la Tarea 1 y sugerencias de redacción para las secciones 4 y 5 del informe. 
+- *Qué se recibió:* propuestas de código en R a partir de las funciones de la Tarea 1 y sugerencias de redacción para las secciones 4 y 5 del informe. En la revisión final se recibieron además dos ajustes al punto 6: la corrección de la prueba de fechas en `tests/pruebas-optimizacion-asignacion.R`, que fallaba en R 4.5.1, y el bloque de verificación que compara `ajustar_tendencia()` con `lm()`.
 - *Qué se verificó por cuenta propia:* cada función se corrió sobre las tres series y su salida se revisó en consola; `diferenciar()`, `acf_muestral()` y `pacf_dl()` se compararon con `diff()`, `acf()` y `pacf()`, con diferencias menores que 1e-10; las cifras del informe salen del código con texto en línea; las decisiones de estacionalidad, de tipo de descomposición y de transformación se contrastaron con los gráficos y las tablas de cada serie.
 
 **Juan David Garro Arboleda y Sara Jurado Giraldo** usaron ChatGPT (OpenAI).

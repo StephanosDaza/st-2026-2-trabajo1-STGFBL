@@ -320,7 +320,7 @@ Las demostraciones se hicieron a mano. La primera prueba que la función de pron
 
 ![Demostración para el método de Holt](../figs/demostracion-holt.jpg){width=90%}
 
-![Demostración para el método de Holt-Winters aditivo](../figs/demostracion-holt-winters.jpg){width=90%}
+![Demostración para el método de Holt-Winters aditivo](../figs/demostracion-holt-winters.jpg){width=100%}
 
 # 5. Dependencia y estacionariedad
 
@@ -888,11 +888,11 @@ Esta sección traduce los resultados estadísticos a las decisiones de contratac
 
 ### Serie 1. Demanda mensual de energía
 
-La **gerencia comercial** determina cuántos GWh contratar por mes en 2026. La **junta directiva** aprueba la estrategia y asume su riesgo financiero. La **superintendencia** vigila los costos que pueden trasladarse a tarifas, mientras que los **usuarios** pueden verse afectados por esos sobrecostos. Un déficit de contratación se paga con un sobrecosto del **35 %** y un excedente se liquida con pérdida del **20 %** de su valor. El costo relativo de déficit es 1,75 veces el de excedente, por unidad comparable; sin un precio base por GWh no cabe calcular el valor absoluto en pesos.
+La **gerencia comercial** determina cuántos GWh contratar por mes en 2026. La **junta directiva** aprueba la estrategia y asume su riesgo financiero. La **superintendencia** vigila los costos que pueden trasladarse a tarifas, mientras que los **usuarios** pueden verse afectados por esos sobrecostos. Un déficit de contratación se paga con un sobrecosto del **35 %** y un excedente se liquida con pérdida del **20 %** de su valor. El costo relativo de déficit es 1.75 veces el de excedente, por unidad comparable; sin un precio base por GWh no cabe calcular el valor absoluto en pesos.
 
 ### Serie 2. Consumo diario de energía
 
-La **mesa de compras** contrata la energía para los siete días siguientes; el **jefe de operación** planifica la actividad de bombeo y la **gerencia financiera** administra el presupuesto. Los **usuarios de las tres veredas** dependen del servicio de agua, aunque no se puede cuantificar aquí un traslado del costo energético. Frente al precio contratado de 420 COP/kWh, comprar faltantes a 780 COP/kWh añade **360.000 COP/MWh**, mientras que vender sobrantes a 250 COP/kWh ocasiona una pérdida de **170.000 COP/MWh**. Por cada MWh de error, el déficit cuesta aproximadamente **2,12 veces** el excedente.
+La **mesa de compras** contrata la energía para los siete días siguientes; el **jefe de operación** planifica la actividad de bombeo y la **gerencia financiera** administra el presupuesto. Los **usuarios de las tres veredas** dependen del servicio de agua, aunque no se puede cuantificar aquí un traslado del costo energético. Frente al precio contratado de 420 COP/kWh, comprar faltantes a 780 COP/kWh añade **360.000 COP/MWh**, mientras que vender sobrantes a 250 COP/kWh ocasiona una pérdida de **170.000 COP/MWh**. Por cada MWh de error, el déficit cuesta aproximadamente **2.12 veces** el excedente.
 
 ### Serie 3. Usuarios conectados
 
@@ -916,7 +916,7 @@ La **gerencia de planeación** decide cuándo ordenar el transformador; la **jun
 
 **Afirmación.** Usar el promedio de consumo como referencia para contratar los siete días siguientes y vigilar los déficits, porque son más costosos.
 
-**Evidencia.** La media simple obtuvo a siete días RMSE de **`r f(mejor_om("serie2", 7)$RMSE, 2)` MWh**, frente a **`r f(mejor_om("serie2", 7)$rmse_referente, 2)` MWh** del referente, una mejora del **`r f(mejor_om("serie2", 7)$mejora_rmse_pct, 2)` %**. El pronóstico para el período 19–25 de septiembre de 2025 es aproximadamente **47,7 MWh diarios**.
+**Evidencia.** La media simple obtuvo a siete días RMSE de **`r f(mejor_om("serie2", 7)$RMSE, 2)` MWh**, frente a **`r f(mejor_om("serie2", 7)$rmse_referente, 2)` MWh** del referente, una mejora del **`r f(mejor_om("serie2", 7)$mejora_rmse_pct, 2)` %**. El pronóstico para el período 19–25 de septiembre de 2025 es aproximadamente **47.7 MWh diarios**.
 
 **Justificación.** La serie fluctúa alrededor de un nivel estable. Por cada 5 MWh faltantes, el costo adicional sería **1.800.000 COP**, frente a **850.000 COP** de pérdida por 5 MWh sobrantes. Minimizar RMSE no equivale necesariamente a minimizar el costo de compras.
 
